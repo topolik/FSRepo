@@ -1,0 +1,5 @@
+FSRepo is Liferay Hook for mapping existing local file system into Liferay as a new Documents & Media repository.
+
+Copyright (c) 2012 Tomáš Polešovský
+
+Based on a brainstorming idea with Aleš Rybak when talking about Liferay Sync!
