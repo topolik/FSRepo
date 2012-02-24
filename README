@@ -8,8 +8,9 @@ Installation
 ============
 Download from https://github.com/topolik/FSRepo/downloads and copy into deploy directory
 
-Build
-=====
+Local Build & Deploy
+====================
 Edit pom.xml and define correct location for: <liferay.auto.deploy.dir>
 
-Call `mvn package'
+Call `mvn clean package liferay:deploy'
+
