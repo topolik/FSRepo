@@ -4,12 +4,16 @@ Copyright (c) 2012 Tomáš Polešovský
 
 Based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync!
 
+Documentation
+=============
+Please see wiki: https://github.com/topolik/FSRepo/wiki
+
 Installation
-============
+------------
 Download from https://github.com/topolik/FSRepo/downloads and copy into deploy directory
 
 Local Build & Deploy
-====================
+--------------------
 Edit pom.xml and define correct location for: <liferay.auto.deploy.dir>
 
 Call `mvn clean package liferay:deploy'
