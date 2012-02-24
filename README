@@ -1,5 +1,15 @@
-FSRepo is Liferay Hook for mapping existing local file system into Liferay as a new Documents & Media repository.
+FSRepo is a Liferay 6.1 Hook for mapping existing local file system into Liferay as a new Documents & Media repository.
 
 Copyright (c) 2012 Tomáš Polešovský
 
-Based on a brainstorming idea with Aleš Rybak when talking about Liferay Sync!
+Based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync!
+
+Installation
+============
+Download from https://github.com/topolik/FSRepo/downloads and copy into deploy directory
+
+Build
+=====
+Edit pom.xml and define correct location for: <liferay.auto.deploy.dir>
+
+Call `mvn package'

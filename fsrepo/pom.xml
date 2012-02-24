@@ -8,6 +8,7 @@
     <name>fsrepo Hook</name>
     <version>1.0-SNAPSHOT</version>
     <build>
+        <finalName>${artifactId}-${version}-hook</finalName>
         <plugins>
             <plugin>
                 <groupId>com.liferay.maven.plugins</groupId>
