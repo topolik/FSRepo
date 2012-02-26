@@ -38,8 +38,8 @@ public class FileSystemRepositoryIndexer {
         this.environment = environment;
     }
 
-    public List<File> getActuallyIndexedFiles(){
-        synchronized(filesToIndex){
+    public List<File> getActuallyIndexedFiles() {
+        synchronized (filesToIndex) {
             List<File> result = new ArrayList<File>(filesToIndex.size());
             result.addAll(filesToIndex);
             return result;
@@ -68,20 +68,20 @@ public class FileSystemRepositoryIndexer {
                     @Override
                     public void run() {
                         try {
-                            if(_log.isInfoEnabled()){
+                            if (_log.isInfoEnabled()) {
                                 _log.info("Indexing file system repository of: " + environment.getRepository().getRootFolder());
                             }
-                            
+
                             FileSystemRepositoryIndexer.this.run(new File(environment.getRepository().getRootFolder()));
 
-                            if(!isInterrupted()){
-                                synchronized(filesToIndex){
+                            if (!isInterrupted()) {
+                                synchronized (filesToIndex) {
                                     environment.getMapper().addAll(filesToIndex);
                                     filesToIndex.clear();
                                 }
                             }
-                            
-                            if(_log.isInfoEnabled()){
+
+                            if (_log.isInfoEnabled()) {
                                 _log.info("Indexing file system repository of " + environment.getRepository().getRootFolder() + " finished.");
                             }
                         } finally {
@@ -97,7 +97,7 @@ public class FileSystemRepositoryIndexer {
             } else {
                 try {
                     run(new File(environment.getRepository().getRootFolder()));
-                    synchronized(filesToIndex){
+                    synchronized (filesToIndex) {
                         environment.getMapper().addAll(filesToIndex);
                         filesToIndex.clear();
                     }
@@ -129,10 +129,10 @@ public class FileSystemRepositoryIndexer {
     }
 
     protected void index(File file) {
-        if(_log.isInfoEnabled()){
-            _log.info("Indexing: " + file.getAbsolutePath());
+        if (_log.isDebugEnabled()) {
+            _log.debug("Indexing: " + file.getAbsolutePath());
         }
-        synchronized(filesToIndex){
+        synchronized (filesToIndex) {
             filesToIndex.add(file);
         }
     }

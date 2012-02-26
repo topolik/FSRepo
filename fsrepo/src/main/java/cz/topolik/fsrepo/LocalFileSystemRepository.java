@@ -34,7 +34,9 @@ import com.liferay.portal.kernel.search.Query;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.search.SearchEngineUtil;
 import com.liferay.portal.kernel.search.SearchException;
+import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.OrderByComparator;
+import com.liferay.portal.kernel.util.PropsUtil;
 import com.liferay.portal.kernel.util.StreamUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.model.Lock;
@@ -65,17 +67,29 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     private static Log _log = LogFactoryUtil.getLog(LocalFileSystemRepository.class);
     private FileSystemRepositoryEnvironment environment;
 
-    
     @Override
     public void initRepository() throws PortalException, SystemException {
+        if(_log.isInfoEnabled()){
+            _log.info("Initializing FileSystemRepository for: " + getRootFolder());
+        }
         environment = new FileSystemRepositoryEnvironment();
         environment.setRepository(this);
         environment.setMapper(new FileSystemRepositoryMapper(environment));
         environment.setIndexer(new FileSystemRepositoryIndexer(environment));
 
-        environment.getIndexer().reIndex(true);
+        boolean indexOnStartup = GetterUtil.getBoolean(PropsUtil.get(Constants.FSREPO_INDEX_ON_STARTUP), false);
+        if(indexOnStartup){
+            if(_log.isInfoEnabled()){
+                _log.info("Forced reindexing of " + getRootFolder());
+            }
+            environment.getIndexer().reIndex(true);
+        }
+
     }
 
+    public FileSystemRepositoryEnvironment getEnvironment(){
+        return environment;
+    }
     
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {

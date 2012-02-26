@@ -17,6 +17,7 @@ import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.service.PortalPreferencesLocalServiceUtil;
+import cz.topolik.fsrepo.Constants;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,16 +33,14 @@ import javax.portlet.ValidatorException;
  */
 public class FileSystemRepositoryMapper {
 
-    public static final int PREFERENCES_OWNER_TYPE_REPOSITORY = 1000;
     private static Log _log = LogFactoryUtil.getLog(FileSystemRepositoryMapper.class);
     private FileSystemRepositoryEnvironment environment;
     private MessageDigest md;
-    private static final String HASH_ALG = "SHA-256";
 
     public FileSystemRepositoryMapper(FileSystemRepositoryEnvironment environment) {
         this.environment = environment;
         try {
-            md = MessageDigest.getInstance(HASH_ALG);
+            md = MessageDigest.getInstance(Constants.HASH_ALG);
         } catch (NoSuchAlgorithmException ex) {
             _log.error(ex);
         }
@@ -50,21 +49,10 @@ public class FileSystemRepositoryMapper {
     public File mappedIdToFile(String mappedId) throws FileNotFoundException, SystemException {
         synchronized (this) {
             if (null == getPrefs().getValue(mappedId, null)) {
-                _log.error("Cannot find checksum: " + mappedId + ". Now we need to index whole mounted filesystem :/");
-                if (!environment.getIndexer().reIndex(false)) {
-                    // try to search at least the indexing files, maybe it's already there
-                    List<File> indexingFiles = environment.getIndexer().getActuallyIndexedFiles();
-                    for(File file : indexingFiles){
-                        if(mappedId.equals(fileToMappedId(file, false))){
-                            return file;
-                        }
-                    }
-                    throw new SystemException("File system is being indexed. Try again later, please.");
-                } else {
-                    if (null == getPrefs().getValue(mappedId, null)) {
-                        throw new FileNotFoundException("File is no longer accessible on the file system!");
-                    }
-                }
+                _log.error("Cannot find checksum: " + mappedId + ". " +
+                        "System is not in consistent state - trying to find something that wasn't indexed! " +
+                        "Please force the repository to reindex using 'fsrepo.reindex.on.startup=true' in portal-ext.properties and reboot the portal!");
+                throw new FileNotFoundException("Internal error, file cannot be found!");
             }
         }
         return new File(getPrefs().getValue(mappedId, null));
@@ -151,9 +139,9 @@ public class FileSystemRepositoryMapper {
         long companyId = environment.getRepository().getCompanyId();
         long ownerId = environment.getRepository().getRepositoryId();
         try {
-            return PortalPreferencesLocalServiceUtil.getPreferences(companyId, ownerId, PREFERENCES_OWNER_TYPE_REPOSITORY);
+            return PortalPreferencesLocalServiceUtil.getPreferences(companyId, ownerId, Constants.PREFERENCES_OWNER_TYPE_REPOSITORY);
         } catch (SystemException ex) {
-            _log.error("Problem while fetching preferences for PortalFileIndexer", ex);
+            _log.error("Problem while fetching preferences for PortalFileIndexer: " + ex.getMessage(), ex);
         }
         return null;
     }

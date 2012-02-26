@@ -46,7 +46,7 @@ public class RepositoryModelListener implements ModelListener<Repository> {
         }
         
         long ownerId = fileRepository.getRepositoryId();
-        int ownerType = FileSystemRepositoryMapper.PREFERENCES_OWNER_TYPE_REPOSITORY;
+        int ownerType = Constants.PREFERENCES_OWNER_TYPE_REPOSITORY;
         try {
             DynamicQuery query = DynamicQueryFactoryUtil.forClass(PortalPreferences.class, PortalClassLoaderUtil.getClassLoader());
             query.add(RestrictionsFactoryUtil.eq("ownerId", ownerId));
