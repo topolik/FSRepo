@@ -55,8 +55,8 @@ public class RepositoryStartupAction extends SimpleAction {
 
     protected void init(Repository repo) throws PortalException, SystemException {
         if (LocalFileSystemRepository.class.getName().equals(repo.getClassName())) {
-            BaseRepository fsRepo = (BaseRepository) RepositoryLocalServiceUtil.getRepositoryImpl(repo.getRepositoryId());
-            fsRepo.initRepository();
+            // repository is initialized also during this instantiation
+            RepositoryLocalServiceUtil.getRepositoryImpl(repo.getRepositoryId());
         }
     }
 }
