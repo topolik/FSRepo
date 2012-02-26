@@ -13,6 +13,12 @@
  */
 package cz.topolik.fsrepo;
 
+import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
+import cz.topolik.fsrepo.mapper.FileSystemRepositoryIndexer;
+import cz.topolik.fsrepo.mapper.FileSystemRepositoryEnvironment;
+import cz.topolik.fsrepo.model.FileSystemFolder;
+import cz.topolik.fsrepo.model.FileSystemFileEntry;
+import cz.topolik.fsrepo.model.FileSystemFileVersion;
 import com.liferay.portal.NoSuchRepositoryEntryException;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
@@ -57,12 +63,17 @@ import java.util.List;
  */
 public class LocalFileSystemRepository extends BaseRepositoryImpl {
     private static Log _log = LogFactoryUtil.getLog(LocalFileSystemRepository.class);
-    private PortalFileIndexer fileIndexer;
+    private FileSystemRepositoryEnvironment environment;
 
     
     @Override
     public void initRepository() throws PortalException, SystemException {
-        fileIndexer = new PortalFileIndexer(this);
+        environment = new FileSystemRepositoryEnvironment();
+        environment.setRepository(this);
+        environment.setMapper(new FileSystemRepositoryMapper(environment));
+        environment.setIndexer(new FileSystemRepositoryIndexer(environment));
+
+        environment.getIndexer().reIndex(true);
     }
 
     
@@ -294,7 +305,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             String mappedId = repositoryEntry.getMappedId();
 
-            return fileToFileEntry(fileIndexer.mappedIdToFile(mappedId));
+            return fileToFileEntry(environment.getMapper().mappedIdToFile(mappedId));
         } catch (NoSuchRepositoryEntryException nsree) {
             throw new NoSuchFileEntryException(nsree);
         } catch (SystemException se) {
@@ -422,11 +433,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             if(!fileToMove.renameTo(dstFile)){
                 throw new SystemException("Moving was not successful (don't know why) [from, to]: ["+fileToMove+", "+dstFile+"]");
             }
-            fileIndexer.remove(fileToMove);
-            fileIndexer.add(dstFile);
+            environment.getMapper().remove(fileToMove);
+            environment.getMapper().add(dstFile);
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
-            repositoryEntry.setMappedId(fileIndexer.fileToMappedId(dstFile));
+            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFile));
             RepositoryEntryUtil.update(repositoryEntry, true);
 
             return fileToFileEntry(dstFile);
@@ -454,11 +465,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             if(!folderToMove.renameTo(dstFolder)){
                 throw new SystemException("Moving was not successful (don't know why) [from, to]: ["+folderToMove+", "+dstFolder+"]");
             }
-            fileIndexer.remove(folderToMove);
-            fileIndexer.add(dstFolder);
+            environment.getMapper().remove(folderToMove);
+            environment.getMapper().add(dstFolder);
             
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(folderId);
-            repositoryEntry.setMappedId(fileIndexer.fileToMappedId(dstFolder));
+            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFolder));
             RepositoryEntryUtil.update(repositoryEntry, true);
 
             return fileToFolder(dstFolder);
@@ -516,11 +527,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
         if(toRename){
             file.renameTo(dstFile);
-            fileIndexer.remove(file);
-            fileIndexer.add(dstFile);
+            environment.getMapper().remove(file);
+            environment.getMapper().add(dstFile);
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
-            repositoryEntry.setMappedId(fileIndexer.fileToMappedId(dstFile));
+            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFile));
             RepositoryEntryUtil.update(repositoryEntry, true);
         }
         return fileToFileEntry(dstFile);
@@ -552,8 +563,8 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
      */
 
 
-    protected Folder fileToFolder(File folder) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(fileIndexer.fileToMappedId(folder));
+    public Folder fileToFolder(File folder) throws SystemException {
+        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(folder));
         long folderId = (Long) ids[0];
         String uuid = (String) ids[1];
 
@@ -564,7 +575,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return fileToFileVersion(file, null);
     }
     public FileVersion fileToFileVersion(File file, FileEntry fileEntry) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(fileIndexer.fileToMappedId(file));
+        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(file));
 
         long fileVersionId = (Long) ids[0];
         FileSystemFileVersion fileVersion = new FileSystemFileVersion(this, fileVersionId, fileEntry, file);
@@ -576,7 +587,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return fileToFileEntry(file, null);
     }
     public FileEntry fileToFileEntry(File file, FileVersion fileVersion) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(fileIndexer.fileToMappedId(file));
+        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(file));
 
         long fileEntryId = (Long) ids[0];
         String uuid = (String) ids[1];
@@ -605,7 +616,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
         }
         try {
-            return fileIndexer.mappedIdToFile(repositoryEntry.getMappedId());
+            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
         } catch (FileNotFoundException ex) {
             throw new NoSuchFileEntryException(
                     "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
@@ -623,7 +634,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "No LocalFileSystem file version with {fileVersionId=" + fileVersionId+ "}");
         }
         try {
-            return fileIndexer.mappedIdToFile(repositoryEntry.getMappedId());
+            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
         } catch (FileNotFoundException ex) {
             throw new NoSuchFileVersionException(
                     "No LocalFileSystem file version with {fileVersionId=" + fileVersionId+ "}");
@@ -638,7 +649,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         if (repositoryEntry != null) {
             try {
-                return fileIndexer.mappedIdToFile(repositoryEntry.getMappedId());
+                return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
             } catch (FileNotFoundException ex) {
                 throw new NoSuchFolderException(
                         "No LocalFileSystem folder with {folderId=" + folderId + "}");
@@ -660,7 +671,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         File rootFolderPath = new File(getRootFolder());
 
         repositoryEntry = RepositoryEntryUtil.fetchByR_M(
-                getRepositoryId(), fileIndexer.fileToMappedId(rootFolderPath));
+                getRepositoryId(), environment.getMapper().fileToMappedId(rootFolderPath));
 
         if (repositoryEntry == null) {
             long repositoryEntryId = counterLocalService.increment();
@@ -669,12 +680,12 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             repositoryEntry.setGroupId(getGroupId());
             repositoryEntry.setRepositoryId(getRepositoryId());
-            repositoryEntry.setMappedId(fileIndexer.fileToMappedId(rootFolderPath));
+            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(rootFolderPath));
 
             RepositoryEntryUtil.update(repositoryEntry, false);
         }
         try {
-            return fileIndexer.mappedIdToFile(repositoryEntry.getMappedId());
+            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
         } catch (FileNotFoundException ex) {
                 throw new NoSuchFolderException(
                         "No LocalFileSystem folder with {path=" + rootFolderPath + "}");

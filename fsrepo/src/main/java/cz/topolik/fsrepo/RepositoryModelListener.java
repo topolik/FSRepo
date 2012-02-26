@@ -13,6 +13,7 @@
  */
 package cz.topolik.fsrepo;
 
+import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
 import com.liferay.portal.ModelListenerException;
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
 import com.liferay.portal.kernel.dao.orm.DynamicQueryFactoryUtil;
@@ -45,7 +46,7 @@ public class RepositoryModelListener implements ModelListener<Repository> {
         }
         
         long ownerId = fileRepository.getRepositoryId();
-        int ownerType = PortalFileIndexer.PREFERENCES_OWNER_TYPE_REPOSITORY;
+        int ownerType = FileSystemRepositoryMapper.PREFERENCES_OWNER_TYPE_REPOSITORY;
         try {
             DynamicQuery query = DynamicQueryFactoryUtil.forClass(PortalPreferences.class, PortalClassLoaderUtil.getClassLoader());
             query.add(RestrictionsFactoryUtil.eq("ownerId", ownerId));

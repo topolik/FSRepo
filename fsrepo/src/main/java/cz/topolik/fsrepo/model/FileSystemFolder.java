@@ -11,7 +11,7 @@
  * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
  * details.
  */
-package cz.topolik.fsrepo;
+package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
@@ -19,6 +19,7 @@ import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
+import cz.topolik.fsrepo.LocalFileSystemRepository;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
@@ -29,13 +30,12 @@ import java.util.List;
  */
 public class FileSystemFolder extends FileSystemModel implements Folder {
     private File folder;
-    private String uuid;    private long folderId;
+    private long folderId;
     private Folder parentFolder;
 
     public FileSystemFolder(LocalFileSystemRepository repository, String uuid, long folderId, File folder) {
         super(repository, uuid, folder);
         this.folder = folder;
-        this.uuid = uuid;
         this.folderId = folderId;
     }
 
