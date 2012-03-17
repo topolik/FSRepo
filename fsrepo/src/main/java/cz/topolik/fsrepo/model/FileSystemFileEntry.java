@@ -194,4 +194,11 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     public void setPrimaryKey(long primaryKey) {
         fileEntryId = primaryKey;
     }
+
+    @Override
+    public String getName() {
+        return getTitle();
+    }
+
+
 }

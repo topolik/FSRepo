@@ -53,7 +53,7 @@ public abstract class FileSystemModel {
         _unsupportedActionKeys.add(ActionKeys.ADD_DISCUSSION);
         _unsupportedActionKeys.add(ActionKeys.ADD_SHORTCUT);
         _unsupportedActionKeys.add(ActionKeys.DELETE_DISCUSSION);
-        _unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
+//        _unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
         _unsupportedActionKeys.add(ActionKeys.UPDATE_DISCUSSION);
     }
     protected LocalFileSystemRepository repository;
@@ -67,8 +67,16 @@ public abstract class FileSystemModel {
     }
 
     public boolean containsPermission(PermissionChecker permissionChecker, String actionId) throws PortalException, SystemException {
+        boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
+        
+        System.out.println("HAS PERMISSION [model, PK, actionId]: ["+ getModelClassName()+", " + getPrimaryKey() + ", " + actionId + "] = " + hasPermission + " : " + getName());
+
         if (_unsupportedActionKeys.contains(actionId)) {
             return false;
+        }
+
+        if(actionId.equals(ActionKeys.PERMISSIONS) || actionId.equals(ActionKeys.PERMISSIONS_USER)){
+            return true;
         }
 
         if (_mappedActionKeys.contains(actionId)) {
@@ -112,7 +120,6 @@ public abstract class FileSystemModel {
         } catch (Exception ex) {
             _log.error(ex);
             throw new RuntimeException(ex.getMessage(), ex);
-
         }
     }
 
@@ -209,4 +216,6 @@ public abstract class FileSystemModel {
     public abstract String getModelClassName();
 
     public abstract void setPrimaryKey(long primaryKey);
+
+    public abstract String getName();
 }

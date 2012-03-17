@@ -173,4 +173,9 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     public void setPrimaryKey(long primaryKey) {
         fileVersionId = primaryKey;
     }
+    
+    @Override
+    public String getName() {
+        return getTitle();
+    }
 }

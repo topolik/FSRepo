@@ -15,20 +15,25 @@ package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.repository.RepositoryException;
 import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import cz.topolik.fsrepo.LocalFileSystemRepository;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Tomas Polesovsky
  */
 public class FileSystemFolder extends FileSystemModel implements Folder {
+
     private File folder;
     private long folderId;
     private Folder parentFolder;
@@ -54,6 +59,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     public void setFolderId(long folderId) {
         this.folderId = folderId;
     }
+
     public long getFolderId() {
         return folderId;
     }
@@ -67,22 +73,22 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     }
 
     public Folder getParentFolder() throws PortalException, SystemException {
-        if(parentFolder != null){
+        try {
+            if (parentFolder != null) {
+                return parentFolder;
+            }
+            File parentFile = folder.getParentFile();
+            File rootFolder = repository.getRootFolder();
+            if (parentFile.equals(rootFolder)) {
+                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
+                parentFolder = mountFolder;
+            } else {
+                parentFolder = repository.fileToFolder(parentFile);
+            }
             return parentFolder;
+        } catch (Exception ex) {
+            throw new SystemException("Cannot get parent folder for [folder]: ["+folder.getAbsolutePath()+"]", ex);
         }
-
-        File parentFile = folder.getParentFile();
-        String rootFolder = repository.getRootFolder();
-        if (rootFolder.contains(parentFile.getAbsolutePath())) {
-            Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
-
-            parentFolder = mountFolder;
-        } else {
-            parentFolder = repository.fileToFolder(parentFile);
-        }
-
-
-        return parentFolder;
     }
 
     public long getParentFolderId() {

@@ -20,6 +20,9 @@ import cz.topolik.fsrepo.model.FileSystemFolder;
 import cz.topolik.fsrepo.model.FileSystemFileEntry;
 import cz.topolik.fsrepo.model.FileSystemFileVersion;
 import com.liferay.portal.NoSuchRepositoryEntryException;
+import com.liferay.portal.kernel.dao.orm.DynamicQuery;
+import com.liferay.portal.kernel.dao.orm.DynamicQueryFactoryUtil;
+import com.liferay.portal.kernel.dao.orm.RestrictionsFactoryUtil;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.log.Log;
@@ -34,21 +37,35 @@ import com.liferay.portal.kernel.search.Query;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.search.SearchEngineUtil;
 import com.liferay.portal.kernel.search.SearchException;
-import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.OrderByComparator;
-import com.liferay.portal.kernel.util.PropsUtil;
+import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
 import com.liferay.portal.kernel.util.StreamUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.model.Lock;
 import com.liferay.portal.model.RepositoryEntry;
+import com.liferay.portal.model.ResourceConstants;
+import com.liferay.portal.model.RoleConstants;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
+import com.liferay.portal.security.permission.ActionKeys;
+import com.liferay.portal.service.ResourceLocalServiceUtil;
+import com.liferay.portal.service.ResourcePermissionLocalServiceUtil;
+import com.liferay.portal.service.RoleLocalServiceUtil;
 import com.liferay.portal.service.ServiceContext;
+import com.liferay.portal.service.UserLocalServiceUtil;
 import com.liferay.portal.service.persistence.RepositoryEntryUtil;
 import com.liferay.portlet.documentlibrary.NoSuchFileEntryException;
 import com.liferay.portlet.documentlibrary.NoSuchFileVersionException;
 import com.liferay.portlet.documentlibrary.NoSuchFolderException;
+import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.service.persistence.DLFolderUtil;
+import com.liferay.portlet.expando.model.ExpandoColumn;
+import com.liferay.portlet.expando.model.ExpandoColumnConstants;
+import com.liferay.portlet.expando.model.ExpandoTable;
+import com.liferay.portlet.expando.model.ExpandoValue;
+import com.liferay.portlet.expando.service.ExpandoColumnLocalServiceUtil;
+import com.liferay.portlet.expando.service.ExpandoTableLocalServiceUtil;
+import com.liferay.portlet.expando.service.ExpandoValueLocalServiceUtil;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
@@ -64,33 +81,66 @@ import java.util.List;
  * @author Tomas Polesovsky
  */
 public class LocalFileSystemRepository extends BaseRepositoryImpl {
+
     private static Log _log = LogFactoryUtil.getLog(LocalFileSystemRepository.class);
     private FileSystemRepositoryEnvironment environment;
 
     @Override
     public void initRepository() throws PortalException, SystemException {
-        if(_log.isInfoEnabled()){
-            _log.info("Initializing FileSystemRepository for: " + getRootFolder());
-        }
-        environment = new FileSystemRepositoryEnvironment();
-        environment.setRepository(this);
-        environment.setMapper(new FileSystemRepositoryMapper(environment));
-        environment.setIndexer(new FileSystemRepositoryIndexer(environment));
-
-        boolean indexOnStartup = GetterUtil.getBoolean(PropsUtil.get(Constants.FSREPO_INDEX_ON_STARTUP), false);
-        if(indexOnStartup){
-            if(_log.isInfoEnabled()){
-                _log.info("Forced reindexing of " + getRootFolder());
+        try {
+            if (_log.isInfoEnabled()) {
+                _log.info("Initializing FileSystemRepository for: " + getRootFolder());
             }
-            environment.getIndexer().reIndex(true);
+            environment = new FileSystemRepositoryEnvironment();
+            environment.setRepository(this);
+            environment.setMapper(new FileSystemRepositoryMapper(environment));
+            environment.setIndexer(new FileSystemRepositoryIndexer(environment));
+
+            ExpandoColumn col = ExpandoColumnLocalServiceUtil.getDefaultTableColumn(getCompanyId(), RepositoryEntry.class.getName(), Constants.ABSOLUTE_PATH);
+            if (col == null) {
+                ExpandoTable table = ExpandoTableLocalServiceUtil.fetchDefaultTable(getCompanyId(), RepositoryEntry.class.getName());
+                if (table == null) {
+                    table = ExpandoTableLocalServiceUtil.addDefaultTable(getCompanyId(), RepositoryEntry.class.getName());
+                }
+                col = ExpandoColumnLocalServiceUtil.addColumn(table.getTableId(), Constants.ABSOLUTE_PATH, ExpandoColumnConstants.STRING);
+
+                // add default permissions on the expando attribute (user+guest: rw)
+                ResourcePermissionLocalServiceUtil.addResourcePermission(getCompanyId(), ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(getCompanyId()),
+                        RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.GUEST).getRoleId(), ActionKeys.VIEW);
+                ResourcePermissionLocalServiceUtil.addResourcePermission(getCompanyId(), ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(getCompanyId()),
+                        RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.GUEST).getRoleId(), ActionKeys.UPDATE);
+                ResourcePermissionLocalServiceUtil.addResourcePermission(getCompanyId(), ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(getCompanyId()),
+                        RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.USER).getRoleId(), ActionKeys.VIEW);
+                ResourcePermissionLocalServiceUtil.addResourcePermission(getCompanyId(), ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(getCompanyId()),
+                        RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.USER).getRoleId(), ActionKeys.UPDATE);
+            }
+
+//
+//
+//            boolean indexOnStartup = GetterUtil.getBoolean(PropsUtil.get(Constants.FSREPO_INDEX_ON_STARTUP), false);
+//            if (indexOnStartup) {
+//                if (_log.isInfoEnabled()) {
+//                    _log.info("Forced reindexing of " + getRootFolder());
+//                }
+//                environment.getIndexer().reIndex(true);
+//            }
+        } catch (FileNotFoundException e) {
+            _log.error(e);
+            throw new SystemException(e);
+        } catch (PortalException e) {
+            _log.error(e);
+            throw e;
+        } catch (SystemException e) {
+            _log.error(e);
+            throw e;
         }
 
     }
 
-    public FileSystemRepositoryEnvironment getEnvironment(){
+    public FileSystemRepositoryEnvironment getEnvironment() {
         return environment;
     }
-    
+
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {
         List<Object> result = new ArrayList<Object>();
@@ -113,40 +163,35 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
 
         result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
-        if(obc != null){
+        if (obc != null) {
             Collections.sort(result, obc);
         }
         return result;
     }
 
-    
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, String[] mimeTypes, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
         return getFoldersAndFileEntries(folderId, start, end, obc);
     }
 
-    
     @Override
     public int getFoldersAndFileEntriesCount(long folderId) throws SystemException {
         return getFoldersAndFileEntries(folderId, 0, Integer.MAX_VALUE, null).size();
     }
 
-    
     @Override
     public int getFoldersAndFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
         return getFoldersAndFileEntries(folderId, mimeTypes, 0, Integer.MAX_VALUE, null).size();
     }
 
-    
     public String[] getSupportedConfigurations() {
         return new String[]{"FILESYSTEM"};
     }
 
-    
     public String[][] getSupportedParameters() {
         return new String[][]{{"ROOT_FOLDER"}};
     }
-    
+
     public FileEntry addFileEntry(long folderId, String sourceFileName, String mimeType, String title, String description, String changeLog, InputStream is, long size, ServiceContext serviceContext) throws PortalException, SystemException {
         File directory = folderIdToFile(folderId);
         if (directory.exists() && directory.canWrite()) {
@@ -163,7 +208,6 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
     }
 
-    
     public Folder addFolder(long parentFolderId, String title, String description, ServiceContext serviceContext) throws PortalException, SystemException {
         File subDir = folderIdToFile(parentFolderId);
         if (subDir.exists() && subDir.canWrite()) {
@@ -175,27 +219,24 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
     }
 
-    
     public void cancelCheckOut(long fileEntryId) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    
     public void checkInFileEntry(long fileEntryId, boolean major, String changeLog, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    
     public void checkInFileEntry(long fileEntryId, String lockUuid) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    
     // 6.1 CE
     public FileEntry checkOutFileEntry(long fileEntryId) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
     // 6.1 EE
+
     public FileEntry checkOutFileEntry(long fileEntryId, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
@@ -205,11 +246,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         throw new UnsupportedOperationException("Not supported yet.");
     }
     // 6.1 EE
+
     public FileEntry checkOutFileEntry(long fileEntryId, String owner, long expirationTime, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    
     public FileEntry copyFileEntry(long groupId, long fileEntryId, long destFolderId, ServiceContext serviceContext) throws PortalException, SystemException {
         File srcFile = fileEntryIdToFile(fileEntryId);
         File destDir = folderIdToFile(destFolderId);
@@ -220,17 +261,16 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new SystemException("Cannot write into destination directory " + destDir);
         }
 
-        File file = new File(destDir, srcFile.getName());
+        File dstFile = new File(destDir, srcFile.getName());
         try {
-            StreamUtil.transfer(new FileInputStream(srcFile), new FileOutputStream(file), true);
-            return fileToFileEntry(file);
+            StreamUtil.transfer(new FileInputStream(srcFile), new FileOutputStream(dstFile), true);
+            return fileToFileEntry(dstFile);
         } catch (Exception ex) {
             _log.error(ex);
             throw new SystemException(ex);
         }
     }
 
-    
     public void deleteFileEntry(long fileEntryId) throws PortalException, SystemException {
         File file = fileEntryIdToFile(fileEntryId);
         if (!file.exists() || !file.canWrite()) {
@@ -240,7 +280,6 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         file.delete();
     }
 
-    
     public void deleteFolder(long folderId) throws PortalException, SystemException {
         File folder = folderIdToFile(folderId);
         if (!folder.exists() || !folder.canWrite()) {
@@ -250,7 +289,6 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         folder.delete();
     }
 
-    
     public List<FileEntry> getFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {
         List<FileEntry> result = new ArrayList<FileEntry>();
         try {
@@ -269,57 +307,47 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
 
         result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
-        if(obc != null){
+        if (obc != null) {
             Collections.sort(result, obc);
         }
         return result;
 
     }
 
-    
     public List<FileEntry> getFileEntries(long folderId, long fileEntryTypeId, int start, int end, OrderByComparator obc) throws SystemException {
         return new ArrayList<FileEntry>();
     }
 
-    
     public List<FileEntry> getFileEntries(long folderId, String[] mimeTypes, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
         return getFileEntries(folderId, start, end, obc);
     }
 
-    
     public int getFileEntriesCount(long folderId) throws SystemException {
         return getFileEntries(folderId, 0, Integer.MAX_VALUE, null).size();
     }
 
-    
     public int getFileEntriesCount(long folderId, long fileEntryTypeId) throws SystemException {
         return getFileEntries(folderId, fileEntryTypeId, 0, Integer.MAX_VALUE, null).size();
     }
 
-    
     public int getFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
         return getFileEntries(folderId, mimeTypes, 0, Integer.MAX_VALUE, null).size();
     }
 
-    
     public FileEntry getFileEntry(long fileEntryId) throws PortalException, SystemException {
         return fileToFileEntry(fileEntryIdToFile(fileEntryId));
     }
 
-    
     public FileEntry getFileEntry(long folderId, String title) throws PortalException, SystemException {
         return fileToFileEntry(new File(folderIdToFile(folderId), title));
     }
 
-    
     public FileEntry getFileEntryByUuid(String uuid) throws PortalException, SystemException {
         try {
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.findByUUID_G(
                     uuid, getGroupId());
 
-            String mappedId = repositoryEntry.getMappedId();
-
-            return fileToFileEntry(environment.getMapper().mappedIdToFile(mappedId));
+            return getFileEntry(repositoryEntry.getRepositoryEntryId());
         } catch (NoSuchRepositoryEntryException nsree) {
             throw new NoSuchFileEntryException(nsree);
         } catch (SystemException se) {
@@ -330,22 +358,18 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     }
 
-    
     public FileVersion getFileVersion(long fileVersionId) throws PortalException, SystemException {
         return fileToFileVersion(fileVersionIdToFile(fileVersionId));
     }
 
-    
     public Folder getFolder(long folderId) throws PortalException, SystemException {
         return fileToFolder(folderIdToFile(folderId));
     }
 
-    
     public Folder getFolder(long parentFolderId, String title) throws PortalException, SystemException {
         return fileToFolder(new File(folderIdToFile(parentFolderId), title));
     }
 
-    
     public List<Folder> getFolders(long parentFolderId, boolean includeMountFolders, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
         String fileSystemDirectory = folderIdToFile(parentFolderId).getAbsolutePath();
         File dir = new File(fileSystemDirectory);
@@ -361,7 +385,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                 result.add(fileToFolder(subDir));
             }
             result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
-            if(obc != null){
+            if (obc != null) {
                 Collections.sort(result, obc);
             }
             return result;
@@ -370,38 +394,32 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return new ArrayList<Folder>();
     }
 
-    
     public int getFoldersCount(long parentFolderId, boolean includeMountfolders) throws PortalException, SystemException {
         int result = getFolders(parentFolderId, includeMountfolders, 0, Integer.MAX_VALUE, null).size();
         return result;
     }
 
-    
     public int getFoldersFileEntriesCount(List<Long> folderIds, int status) throws SystemException {
         int result = 0;
-        for(Long folderId : folderIds){
+        for (Long folderId : folderIds) {
             result += getFileEntriesCount(folderId);
         }
         return result;
     }
 
-    
     public List<Folder> getMountFolders(long parentFolderId, int start, int end, OrderByComparator obc) throws SystemException {
         return new ArrayList<Folder>();
     }
 
-    
     public int getMountFoldersCount(long parentFolderId) throws SystemException {
         return 0;
     }
 
-    
     public void getSubfolderIds(List<Long> folderIds, long folderId) throws SystemException {
         //TODO: where is it used?
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    
     public List<Long> getSubfolderIds(long folderId, boolean recurse) throws SystemException {
         try {
             List<Long> result = new ArrayList();
@@ -418,143 +436,127 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
     }
 
-    
     public Lock lockFolder(long folderId) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public Lock lockFolder(long folderId, String owner, boolean inheritable, long expirationTime) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public FileEntry moveFileEntry(long fileEntryId, long newFolderId, ServiceContext serviceContext) throws PortalException, SystemException {
         File fileToMove = folderIdToFile(fileEntryId);
         File parentFolder = folderIdToFile(newFolderId);
         File dstFile = new File(parentFolder, fileToMove.getName());
 
-        if(!fileToMove.exists()){
+        if (!fileToMove.exists()) {
             throw new SystemException("Source file doesn't exist: " + fileToMove);
         }
-        if(!parentFolder.exists()){
+        if (!parentFolder.exists()) {
             throw new SystemException("Destination parent folder doesn't exist: " + parentFolder);
         }
-        if(!parentFolder.exists()){
+        if (!parentFolder.exists()) {
             throw new SystemException("Destination file does exist: " + dstFile);
         }
-        if(fileToMove.canWrite() && parentFolder.canWrite()){
-            if(!fileToMove.renameTo(dstFile)){
-                throw new SystemException("Moving was not successful (don't know why) [from, to]: ["+fileToMove+", "+dstFile+"]");
+        if (fileToMove.canWrite() && parentFolder.canWrite()) {
+            if (!fileToMove.renameTo(dstFile)) {
+                throw new SystemException("Moving was not successful (don't know why) [from, to]: [" + fileToMove + ", " + dstFile + "]");
             }
-            environment.getMapper().remove(fileToMove);
-            environment.getMapper().add(dstFile);
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
-            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFile));
             RepositoryEntryUtil.update(repositoryEntry, true);
+            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFile);
 
             return fileToFileEntry(dstFile);
         } else {
-            throw new SystemException("Doesn't have rights to move the file [src, toParentDir]: ["+fileToMove+", "+parentFolder+"]");
+            throw new SystemException("Doesn't have rights to move the file [src, toParentDir]: [" + fileToMove + ", " + parentFolder + "]");
         }
     }
 
-    
     public Folder moveFolder(long folderId, long newParentFolderId, ServiceContext serviceContext) throws PortalException, SystemException {
         File folderToMove = folderIdToFile(folderId);
         File parentFolder = folderIdToFile(newParentFolderId);
         File dstFolder = new File(parentFolder, folderToMove.getName());
-        
-        if(!folderToMove.exists()){
+
+        if (!folderToMove.exists()) {
             throw new SystemException("Source folder doesn't exist: " + folderToMove);
         }
-        if(!parentFolder.exists()){
+        if (!parentFolder.exists()) {
             throw new SystemException("Destination parent folder doesn't exist: " + parentFolder);
         }
-        if(!parentFolder.exists()){
+        if (!parentFolder.exists()) {
             throw new SystemException("Destination folder does exist: " + dstFolder);
         }
-        if(folderToMove.canWrite() && parentFolder.canWrite()){
-            if(!folderToMove.renameTo(dstFolder)){
-                throw new SystemException("Moving was not successful (don't know why) [from, to]: ["+folderToMove+", "+dstFolder+"]");
+        if (folderToMove.canWrite() && parentFolder.canWrite()) {
+            if (!folderToMove.renameTo(dstFolder)) {
+                throw new SystemException("Moving was not successful (don't know why) [from, to]: [" + folderToMove + ", " + dstFolder + "]");
             }
-            environment.getMapper().remove(folderToMove);
-            environment.getMapper().add(dstFolder);
-            
+
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(folderId);
-            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFolder));
             RepositoryEntryUtil.update(repositoryEntry, true);
+            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFolder);
 
             return fileToFolder(dstFolder);
         } else {
-            throw new SystemException("Doesn't have rights to move the directory [srcDir, toParentDir]: ["+folderToMove+", "+parentFolder+"]");
+            throw new SystemException("Doesn't have rights to move the directory [srcDir, toParentDir]: [" + folderToMove + ", " + parentFolder + "]");
         }
     }
 
-    
     public Lock refreshFileEntryLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public Lock refreshFolderLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public void revertFileEntry(long fileEntryId, String version, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public Hits search(SearchContext searchContext, Query query) throws SearchException {
         // TODO: implement indexing and add specific FILE_SYSTEM key into the query
+        System.out.println("Searched: " + query);
         return SearchEngineUtil.search(searchContext, query);
     }
 
-    
     public void unlockFolder(long folderId, String lockUuid) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public FileEntry updateFileEntry(long fileEntryId, String sourceFileName, String mimeType, String title, String description, String changeLog, boolean majorVersion, InputStream is, long size, ServiceContext serviceContext) throws PortalException, SystemException {
         File file = fileEntryIdToFile(fileEntryId);
         File dstFile = new File(file.getParentFile(), title);
         boolean toRename = false;
-        if(!file.canWrite()){
+        if (!file.canWrite()) {
             throw new SystemException("Cannot modify file: " + file);
         }
-        if(Validator.isNotNull(title) && !title.equals(file.getName())){
-            if(dstFile.exists()){
+        if (Validator.isNotNull(title) && !title.equals(file.getName())) {
+            if (dstFile.exists()) {
                 throw new SystemException("Destination file already exists: " + dstFile);
             }
             toRename = true;
         }
-        if(size > 0){
+        if (size > 0) {
             try {
                 StreamUtil.transfer(is, new FileOutputStream(file));
             } catch (IOException ex) {
                 _log.error(ex);
             }
         }
-        if(toRename){
+        if (toRename) {
             file.renameTo(dstFile);
-            environment.getMapper().remove(file);
-            environment.getMapper().add(dstFile);
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
-            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(dstFile));
             RepositoryEntryUtil.update(repositoryEntry, true);
+            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFile);
         }
         return fileToFileEntry(dstFile);
     }
 
-    
     public Folder updateFolder(long folderId, String title, String description, ServiceContext serviceContext) throws PortalException, SystemException {
         File folder = folderIdToFile(folderId);
-        if(!folder.exists() || !folder.canWrite()){
+        if (!folder.exists() || !folder.canWrite()) {
             throw new SystemException("Folder doesn't exist or cannot be changed: " + folder);
         }
         File newFolder = new File(folder.getParentFile(), title);
@@ -562,12 +564,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return fileToFolder(newFolder);
     }
 
-    
     public boolean verifyFileEntryCheckOut(long fileEntryId, String lockUuid) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    
     public boolean verifyInheritableLock(long folderId, String lockUuid) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
@@ -575,24 +575,64 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     /******************
      *
      */
+    protected RepositoryEntry findEntryFromExpando(File file) throws SystemException {
+        String className = RepositoryEntry.class.getName();
+        long companyId = getCompanyId();
+        ExpandoColumn col = ExpandoColumnLocalServiceUtil.getDefaultTableColumn(companyId, className, Constants.ABSOLUTE_PATH);
 
+        DynamicQuery query = DynamicQueryFactoryUtil.forClass(ExpandoValue.class, PortalClassLoaderUtil.getClassLoader());
+        query.add(RestrictionsFactoryUtil.eq("columnId", col.getColumnId()));
+        query.add(RestrictionsFactoryUtil.eq("data", file.getAbsolutePath()));
+        List<ExpandoValue> result = (List<ExpandoValue>) ExpandoValueLocalServiceUtil.dynamicQuery(query);
+        System.out.println("Found results: " + new ArrayList(result) + " " + result.size());
+        if (result.size() == 0) {
+            return null;
+        }
+        long entryId = result.get(0).getClassPK();
+        try {
+            return RepositoryEntryUtil.findByPrimaryKey(entryId);
+        } catch (NoSuchRepositoryEntryException ex) {
+            _log.error(ex);
+            throw new SystemException(ex);
+        }
+    }
+
+    protected RepositoryEntry retrieveRepositoryEntry(File file, Class modelClass) throws SystemException {
+        RepositoryEntry repositoryEntry = findEntryFromExpando(file);
+
+        if (repositoryEntry != null) {
+            return repositoryEntry;
+        }
+
+        System.out.println("CREATING: " + file);
+        long repositoryEntryId = counterLocalService.increment();
+        repositoryEntry = RepositoryEntryUtil.create(repositoryEntryId);
+        repositoryEntry.setGroupId(getGroupId());
+        repositoryEntry.setRepositoryId(getRepositoryId());
+        repositoryEntry.setMappedId(String.valueOf(repositoryEntryId));
+        RepositoryEntryUtil.update(repositoryEntry, false);
+
+        repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, file.getAbsolutePath());
+        
+        ResourceLocalServiceUtil.addResource(getCompanyId(), modelClass.getName(), ResourceConstants.SCOPE_INDIVIDUAL, String.valueOf(repositoryEntryId));
+
+        return repositoryEntry;
+    }
 
     public Folder fileToFolder(File folder) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(folder));
-        long folderId = (Long) ids[0];
-        String uuid = (String) ids[1];
+        RepositoryEntry entry = retrieveRepositoryEntry(folder, DLFolder.class);
 
-        return new FileSystemFolder(this, uuid, folderId, folder);
+        return new FileSystemFolder(this, entry.getUuid(), entry.getRepositoryEntryId(), folder);
     }
 
     public FileVersion fileToFileVersion(File file) throws SystemException {
         return fileToFileVersion(file, null);
     }
-    public FileVersion fileToFileVersion(File file, FileEntry fileEntry) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(file));
 
-        long fileVersionId = (Long) ids[0];
-        FileSystemFileVersion fileVersion = new FileSystemFileVersion(this, fileVersionId, fileEntry, file);
+    public FileVersion fileToFileVersion(File file, FileEntry fileEntry) throws SystemException {
+        RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
+
+        FileSystemFileVersion fileVersion = new FileSystemFileVersion(this, entry.getRepositoryEntryId(), fileEntry, file);
 
         return fileVersion;
     }
@@ -600,17 +640,19 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileEntry fileToFileEntry(File file) throws SystemException {
         return fileToFileEntry(file, null);
     }
+
     public FileEntry fileToFileEntry(File file, FileVersion fileVersion) throws SystemException {
-        Object[] ids = getRepositoryEntryIds(environment.getMapper().fileToMappedId(file));
+        RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
 
-        long fileEntryId = (Long) ids[0];
-        String uuid = (String) ids[1];
-
-        FileSystemFileEntry fileEntry = new FileSystemFileEntry(this, uuid, fileEntryId, null, file, fileVersion);
+        FileSystemFileEntry fileEntry = new FileSystemFileEntry(this, entry.getUuid(), entry.getRepositoryEntryId(), null, file, fileVersion);
 
         try {
+            long userId = PrincipalThreadLocal.getUserId();
+            if(userId == 0){
+                userId = UserLocalServiceUtil.getDefaultUserId(getCompanyId());
+            }
             dlAppHelperLocalService.checkAssetEntry(
-                    PrincipalThreadLocal.getUserId(), fileEntry,
+                    userId, fileEntry,
                     fileEntry.getFileVersion());
         } catch (Exception e) {
             _log.error("Unable to update asset", e);
@@ -630,10 +672,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
         }
         try {
-            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
+            return getFileFromRepositoryEntry(repositoryEntry);
         } catch (FileNotFoundException ex) {
-            throw new NoSuchFileEntryException(
-                    "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
+            RepositoryEntryUtil.remove(repositoryEntry.getRepositoryEntryId());
+            throw new NoSuchFolderException("File is no longer present on the file system!", ex);
         }
     }
 
@@ -645,13 +687,14 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         if (repositoryEntry == null) {
             throw new NoSuchFileVersionException(
-                    "No LocalFileSystem file version with {fileVersionId=" + fileVersionId+ "}");
+                    "No LocalFileSystem file version with {fileVersionId=" + fileVersionId + "}");
         }
+
         try {
-            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
+            return getFileFromRepositoryEntry(repositoryEntry);
         } catch (FileNotFoundException ex) {
-            throw new NoSuchFileVersionException(
-                    "No LocalFileSystem file version with {fileVersionId=" + fileVersionId+ "}");
+            RepositoryEntryUtil.remove(repositoryEntry.getRepositoryEntryId());
+            throw new NoSuchFolderException("File is no longer present on the file system!", ex);
         }
     }
 
@@ -663,10 +706,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         if (repositoryEntry != null) {
             try {
-                return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
+                return getFileFromRepositoryEntry(repositoryEntry);
             } catch (FileNotFoundException ex) {
-                throw new NoSuchFolderException(
-                        "No LocalFileSystem folder with {folderId=" + folderId + "}");
+                RepositoryEntryUtil.remove(repositoryEntry.getRepositoryEntryId());
+                throw new NoSuchFolderException("Folder is no longer present on the file system!", ex);
             }
         }
 
@@ -680,34 +723,35 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "LocalFileSystem repository should not be used with {folderId="
                     + folderId + "}");
         }
-
-
-        File rootFolderPath = new File(getRootFolder());
-
-        repositoryEntry = RepositoryEntryUtil.fetchByR_M(
-                getRepositoryId(), environment.getMapper().fileToMappedId(rootFolderPath));
-
-        if (repositoryEntry == null) {
-            long repositoryEntryId = counterLocalService.increment();
-
-            repositoryEntry = RepositoryEntryUtil.create(repositoryEntryId);
-
-            repositoryEntry.setGroupId(getGroupId());
-            repositoryEntry.setRepositoryId(getRepositoryId());
-            repositoryEntry.setMappedId(environment.getMapper().fileToMappedId(rootFolderPath));
-
-            RepositoryEntryUtil.update(repositoryEntry, false);
-        }
         try {
-            return environment.getMapper().mappedIdToFile(repositoryEntry.getMappedId());
+            repositoryEntry = retrieveRepositoryEntry(getRootFolder(), DLFolder.class);
+            return getRootFolder();
         } catch (FileNotFoundException ex) {
-                throw new NoSuchFolderException(
-                        "No LocalFileSystem folder with {path=" + rootFolderPath + "}");
+            throw new RepositoryException("Mapped root folder doesn't exist on the file system!", ex);
         }
     }
 
-    public String getRootFolder() {
-        return getTypeSettingsProperties().getProperty("ROOT_FOLDER");
+    protected File getFileFromRepositoryEntry(RepositoryEntry entry) throws FileNotFoundException {
+        String file = (String) entry.getExpandoBridge().getAttribute(Constants.ABSOLUTE_PATH);
+        if(file == null){
+            throw new RuntimeException("There is no absolute path in Expando for Repository Entry [id]: ["+entry.getRepositoryEntryId()+"]");
+        }
+        File f = new File(file);
+        if(!f.exists()){
+            throw new FileNotFoundException("File no longer exists on the file system: " + f.getAbsolutePath());
+        }
+        return f;
     }
 
+    public File getRootFolder() throws FileNotFoundException, RepositoryException {
+        String file = getTypeSettingsProperties().getProperty("ROOT_FOLDER");
+        if(file == null){
+            throw new RepositoryException("There is no ROOT_FOLDER configured for the repository [repositoryId]: ["+getRepositoryId()+"]");
+        }
+        File f = new File(file);
+        if(!f.exists()){
+            throw new FileNotFoundException("Root folder no longer exists on the file system [folderPath, repositoryId] [" + f.getAbsolutePath() + ", " + getRepositoryId() +"]");
+        }
+        return f;
+    }
 }

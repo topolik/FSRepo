@@ -46,7 +46,7 @@ public class FileSystemRepositoryMapper {
         }
     }
 
-    public File mappedIdToFile(String mappedId) throws FileNotFoundException, SystemException {
+    public File mappedIdToFile2(String mappedId) throws FileNotFoundException, SystemException {
         synchronized (this) {
             if (null == getPrefs().getValue(mappedId, null)) {
                 _log.error("Cannot find checksum: " + mappedId + ". " +

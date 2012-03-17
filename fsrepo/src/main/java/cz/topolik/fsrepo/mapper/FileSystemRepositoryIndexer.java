@@ -16,12 +16,16 @@ package cz.topolik.fsrepo.mapper;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.repository.RepositoryException;
 import com.liferay.portal.kernel.util.Time;
 import com.liferay.portal.service.LockLocalServiceUtil;
 import com.liferay.portal.service.UserLocalServiceUtil;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -46,7 +50,13 @@ public class FileSystemRepositoryIndexer {
         }
     }
 
-    public boolean reIndex(boolean async) {
+    public boolean reIndex(boolean async) throws RepositoryException {
+        final File rootFolder;
+        try {
+            rootFolder = environment.getRepository().getRootFolder();
+        } catch (FileNotFoundException ex) {
+            throw new RepositoryException(ex.getMessage(), ex);
+        }
         try {
             final long companyId = environment.getRepository().getCompanyId();
             long defaultUserId = UserLocalServiceUtil.getDefaultUserId(companyId);
@@ -57,6 +67,7 @@ public class FileSystemRepositoryIndexer {
                 return false;
             }
             LockLocalServiceUtil.lock(defaultUserId, FileSystemRepositoryIndexer.class.getName(), environment.getRepository().getRepositoryId(), FileSystemRepositoryIndexer.class.getName(), false, Time.HOUR);
+            
             if (async) {
                 //TODO: use message bus?
                 asyncThread = new Thread() {
@@ -69,10 +80,10 @@ public class FileSystemRepositoryIndexer {
                     public void run() {
                         try {
                             if (_log.isInfoEnabled()) {
-                                _log.info("Indexing file system repository of: " + environment.getRepository().getRootFolder());
+                                _log.info("Indexing file system repository of: " + rootFolder);
                             }
 
-                            FileSystemRepositoryIndexer.this.run(new File(environment.getRepository().getRootFolder()));
+                            FileSystemRepositoryIndexer.this.run(rootFolder);
 
                             if (!isInterrupted()) {
                                 synchronized (filesToIndex) {
@@ -82,13 +93,13 @@ public class FileSystemRepositoryIndexer {
                             }
 
                             if (_log.isInfoEnabled()) {
-                                _log.info("Indexing file system repository of " + environment.getRepository().getRootFolder() + " finished.");
+                                _log.info("Indexing file system repository of " + rootFolder + " finished.");
                             }
                         } finally {
                             try {
                                 LockLocalServiceUtil.unlock(FileSystemRepositoryIndexer.class.getName(), environment.getRepository().getRepositoryId());
                             } catch (SystemException ex) {
-                                _log.error("Cannot reindex filesystem " + environment.getRepository().getRootFolder() + ": " + ex.getMessage(), ex);
+                                _log.error("Cannot reindex filesystem " + rootFolder + ": " + ex.getMessage(), ex);
                             }
                         }
                     }
@@ -96,7 +107,7 @@ public class FileSystemRepositoryIndexer {
                 asyncThread.start();
             } else {
                 try {
-                    run(new File(environment.getRepository().getRootFolder()));
+                    run(environment.getRepository().getRootFolder());
                     synchronized (filesToIndex) {
                         environment.getMapper().addAll(filesToIndex);
                         filesToIndex.clear();
@@ -105,13 +116,13 @@ public class FileSystemRepositoryIndexer {
                     try {
                         LockLocalServiceUtil.unlock(FileSystemRepositoryIndexer.class.getName(), environment.getRepository().getRepositoryId());
                     } catch (SystemException ex) {
-                        _log.error("Cannot reindex filesystem " + environment.getRepository().getRootFolder() + ": " + ex.getMessage(), ex);
+                        _log.error("Cannot reindex filesystem " + rootFolder + ": " + ex.getMessage(), ex);
                     }
                 }
             }
             return true;
         } catch (Exception ex) {
-            _log.error("Cannot reindex file system " + environment.getRepository().getRootFolder() + ": " + ex.getMessage(), ex);
+            _log.error("Cannot reindex file system " + rootFolder + ": " + ex.getMessage(), ex);
             return false;
         }
     }
