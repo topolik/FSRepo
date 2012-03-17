@@ -15,7 +15,6 @@ package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
-import com.liferay.portal.kernel.repository.RepositoryException;
 import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
@@ -26,8 +25,6 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author Tomas Polesovsky
@@ -86,7 +83,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
                 parentFolder = repository.fileToFolder(parentFile);
             }
             return parentFolder;
-        } catch (Exception ex) {
+        } catch (FileNotFoundException ex) {
             throw new SystemException("Cannot get parent folder for [folder]: ["+folder.getAbsolutePath()+"]", ex);
         }
     }

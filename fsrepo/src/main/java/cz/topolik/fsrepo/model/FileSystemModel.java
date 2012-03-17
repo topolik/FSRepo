@@ -43,17 +43,18 @@ public abstract class FileSystemModel {
 
     static {
         _mappedActionKeys.add(ActionKeys.ACCESS);
+        _mappedActionKeys.add(ActionKeys.VIEW);
+
         _mappedActionKeys.add(ActionKeys.ADD_DOCUMENT);
         _mappedActionKeys.add(ActionKeys.ADD_FOLDER);
         _mappedActionKeys.add(ActionKeys.ADD_SUBFOLDER);
         _mappedActionKeys.add(ActionKeys.DELETE);
         _mappedActionKeys.add(ActionKeys.UPDATE);
-        _mappedActionKeys.add(ActionKeys.VIEW);
 
         _unsupportedActionKeys.add(ActionKeys.ADD_DISCUSSION);
         _unsupportedActionKeys.add(ActionKeys.ADD_SHORTCUT);
         _unsupportedActionKeys.add(ActionKeys.DELETE_DISCUSSION);
-//        _unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
+        //_unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
         _unsupportedActionKeys.add(ActionKeys.UPDATE_DISCUSSION);
     }
     protected LocalFileSystemRepository repository;
@@ -68,14 +69,17 @@ public abstract class FileSystemModel {
 
     public boolean containsPermission(PermissionChecker permissionChecker, String actionId) throws PortalException, SystemException {
         boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
-        
         System.out.println("HAS PERMISSION [model, PK, actionId]: ["+ getModelClassName()+", " + getPrimaryKey() + ", " + actionId + "] = " + hasPermission + " : " + getName());
+        if(!hasPermission){
+            return false;
+        }
+        
 
         if (_unsupportedActionKeys.contains(actionId)) {
             return false;
         }
 
-        if(actionId.equals(ActionKeys.PERMISSIONS) || actionId.equals(ActionKeys.PERMISSIONS_USER)){
+        if(actionId.equals(ActionKeys.PERMISSIONS)){
             return true;
         }
 

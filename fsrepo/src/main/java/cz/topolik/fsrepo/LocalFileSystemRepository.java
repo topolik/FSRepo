@@ -44,9 +44,11 @@ import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.model.Lock;
 import com.liferay.portal.model.RepositoryEntry;
 import com.liferay.portal.model.ResourceConstants;
+import com.liferay.portal.model.ResourcePermission;
 import com.liferay.portal.model.RoleConstants;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
 import com.liferay.portal.security.permission.ActionKeys;
+import com.liferay.portal.security.permission.PermissionThreadLocal;
 import com.liferay.portal.service.ResourceLocalServiceUtil;
 import com.liferay.portal.service.ResourcePermissionLocalServiceUtil;
 import com.liferay.portal.service.RoleLocalServiceUtil;
@@ -58,6 +60,7 @@ import com.liferay.portlet.documentlibrary.NoSuchFileVersionException;
 import com.liferay.portlet.documentlibrary.NoSuchFolderException;
 import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
+import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.service.persistence.DLFolderUtil;
 import com.liferay.portlet.expando.model.ExpandoColumn;
 import com.liferay.portlet.expando.model.ExpandoColumnConstants;
@@ -154,6 +157,9 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     } else {
                         FileEntry f = fileToFileEntry(file);
                         result.add(f);
+                    }
+                    if(obc == null && result.size() > end){
+                        return result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
                     }
                 }
             }
@@ -298,6 +304,9 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     if (!file.isDirectory()) {
                         FileEntry f = fileToFileEntry(file);
                         result.add(f);
+                    }
+                    if(obc == null && result.size() > end){
+                        return result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
                     }
                 }
             }
@@ -584,7 +593,6 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         query.add(RestrictionsFactoryUtil.eq("columnId", col.getColumnId()));
         query.add(RestrictionsFactoryUtil.eq("data", file.getAbsolutePath()));
         List<ExpandoValue> result = (List<ExpandoValue>) ExpandoValueLocalServiceUtil.dynamicQuery(query);
-        System.out.println("Found results: " + new ArrayList(result) + " " + result.size());
         if (result.size() == 0) {
             return null;
         }
@@ -604,7 +612,6 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             return repositoryEntry;
         }
 
-        System.out.println("CREATING: " + file);
         long repositoryEntryId = counterLocalService.increment();
         repositoryEntry = RepositoryEntryUtil.create(repositoryEntryId);
         repositoryEntry.setGroupId(getGroupId());
@@ -613,8 +620,39 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         RepositoryEntryUtil.update(repositoryEntry, false);
 
         repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, file.getAbsolutePath());
-        
-        ResourceLocalServiceUtil.addResource(getCompanyId(), modelClass.getName(), ResourceConstants.SCOPE_INDIVIDUAL, String.valueOf(repositoryEntryId));
+
+        // copy over the parent permissions
+        try {
+            boolean addGuestPermissions = false;
+            boolean addGroupPermissions = false;
+            List<ResourcePermission> resPermissions = null;
+            try {
+                long guestRoleId = RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.GUEST).getRoleId();
+                long groupRoleId = RoleLocalServiceUtil.getDefaultGroupRole(getGroupId()).getRoleId();
+                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
+                if(mountFolder != null){
+                    resPermissions = ResourcePermissionLocalServiceUtil.getResourceResourcePermissions(getCompanyId(), getGroupId(), DLFolder.class.getName(), String.valueOf(mountFolder.getFolderId()));
+                    for(ResourcePermission rp : resPermissions){
+                        if(rp.getRoleId() == guestRoleId){
+                            addGuestPermissions |= rp.hasActionId(ActionKeys.VIEW);
+                        }
+                        if(rp.getRoleId() == groupRoleId){
+                            addGroupPermissions |= rp.hasActionId(ActionKeys.VIEW);
+                        }
+                    }
+                }
+            } catch (RepositoryException ex) {
+                // do nothing, let's stick with restrictive permissions at all (only owner)
+            }
+
+            long userId = UserLocalServiceUtil.getDefaultUserId(getCompanyId());
+            if(PermissionThreadLocal.getPermissionChecker()!= null){
+                userId = PermissionThreadLocal.getPermissionChecker().getUserId();
+            }
+            ResourceLocalServiceUtil.addResources(getCompanyId(), getGroupId(), userId, modelClass.getName(), repositoryEntryId, false, addGroupPermissions, addGuestPermissions);
+        } catch (PortalException ex) {
+            throw new SystemException(ex.getMessage(), ex);
+        }
 
         return repositoryEntry;
     }
