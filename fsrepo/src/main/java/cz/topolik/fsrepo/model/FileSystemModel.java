@@ -176,14 +176,14 @@ public abstract class FileSystemModel {
     }
 
     public void setCompanyId(long companyId) {
-        repository.setCompanyId(companyId);
+        
     }
 
     public void setCreateDate(Date date) {
     }
 
     public void setGroupId(long groupId) {
-        repository.setGroupId(groupId);
+        
     }
 
     public void setModifiedDate(Date date) {
