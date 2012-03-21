@@ -526,7 +526,8 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFile);
+            saveFileToExpando(repositoryEntry, dstFile);
+            
 
             return fileToFileEntry(dstFile);
         } else {
@@ -559,7 +560,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(folderId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFolder);
+            saveFileToExpando(repositoryEntry, dstFolder);
 
             return fileToFolder(dstFolder);
         } else {
@@ -616,7 +617,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, dstFile);
+            saveFileToExpando(repositoryEntry, dstFile);
         }
         return fileToFileEntry(dstFile);
     }
@@ -654,7 +655,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         DynamicQuery query = DynamicQueryFactoryUtil.forClass(ExpandoValue.class, PortalClassLoaderUtil.getClassLoader());
         query.add(RestrictionsFactoryUtil.eq("columnId", col.getColumnId()));
-        query.add(RestrictionsFactoryUtil.eq("data", file.getAbsolutePath()));
+        query.add(RestrictionsFactoryUtil.eq("data", getCombinedExpandoValue(file)));
         List<ExpandoValue> result = (List<ExpandoValue>) ExpandoValueLocalServiceUtil.dynamicQuery(query);
         if (result.size() == 0) {
             return null;
@@ -682,7 +683,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         repositoryEntry.setMappedId(String.valueOf(repositoryEntryId));
         RepositoryEntryUtil.update(repositoryEntry, false);
 
-        repositoryEntry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, file.getAbsolutePath());
+        saveFileToExpando(repositoryEntry, file);
 
         // copy over the parent permissions
         try {
@@ -857,7 +858,20 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     protected File getFileFromRepositoryEntry(RepositoryEntry entry) throws FileNotFoundException {
-        String file = (String) entry.getExpandoBridge().getAttribute(Constants.ABSOLUTE_PATH);
+        return getFileFromExpando(entry);
+    }
+
+    protected String getCombinedExpandoValue(File file){
+        return String.valueOf(getRepositoryId() + "-" + file.getAbsolutePath());
+    }
+
+    protected void saveFileToExpando(RepositoryEntry entry, File file){
+        entry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, getCombinedExpandoValue(file));
+    }
+    
+    protected File getFileFromExpando(RepositoryEntry entry) throws FileNotFoundException{
+        String value = (String) entry.getExpandoBridge().getAttribute(Constants.ABSOLUTE_PATH);
+        String file = value.substring(value.indexOf("-")+1);
         if(file == null){
             throw new RuntimeException("There is no absolute path in Expando for Repository Entry [id]: ["+entry.getRepositoryEntryId()+"]");
         }

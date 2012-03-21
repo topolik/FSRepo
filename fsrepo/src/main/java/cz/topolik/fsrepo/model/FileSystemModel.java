@@ -46,7 +46,6 @@ public abstract class FileSystemModel {
         _mappedActionKeys.add(ActionKeys.VIEW);
 
         _mappedActionKeys.add(ActionKeys.ADD_DOCUMENT);
-        _mappedActionKeys.add(ActionKeys.ADD_FOLDER);
         _mappedActionKeys.add(ActionKeys.ADD_SUBFOLDER);
         _mappedActionKeys.add(ActionKeys.DELETE);
         _mappedActionKeys.add(ActionKeys.UPDATE);
@@ -54,6 +53,7 @@ public abstract class FileSystemModel {
         _unsupportedActionKeys.add(ActionKeys.ADD_DISCUSSION);
         _unsupportedActionKeys.add(ActionKeys.ADD_SHORTCUT);
         _unsupportedActionKeys.add(ActionKeys.DELETE_DISCUSSION);
+        _unsupportedActionKeys.add(ActionKeys.ADD_FOLDER);
         //_unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
         _unsupportedActionKeys.add(ActionKeys.UPDATE_DISCUSSION);
     }
