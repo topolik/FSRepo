@@ -76,7 +76,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
             }
             File parentFile = folder.getParentFile();
             File rootFolder = repository.getRootFolder();
-            if (parentFile.equals(rootFolder)) {
+            if (parentFile.getAbsolutePath().length() <= rootFolder.getAbsolutePath().length()) {
                 Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
                 parentFolder = mountFolder;
             } else {
