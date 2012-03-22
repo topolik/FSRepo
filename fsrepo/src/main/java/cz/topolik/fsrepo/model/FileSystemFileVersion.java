@@ -23,6 +23,7 @@ import com.liferay.portal.kernel.util.FileUtil;
 import com.liferay.portal.kernel.util.MimeTypesUtil;
 import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
+import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.model.DLFileVersion;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
@@ -133,7 +134,7 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     }
 
     public String getVersion() {
-        return "1.0";
+        return DLFileEntryConstants.VERSION_DEFAULT;
     }
 
     public boolean isApproved() {

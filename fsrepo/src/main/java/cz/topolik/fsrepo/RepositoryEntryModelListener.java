@@ -17,6 +17,8 @@ import com.liferay.portal.ModelListenerException;
 import com.liferay.portal.model.ModelListener;
 import com.liferay.portal.model.RepositoryEntry;
 import com.liferay.portal.service.GroupLocalServiceUtil;
+import com.liferay.portlet.asset.service.AssetEntryLocalServiceUtil;
+import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.expando.model.ExpandoTableConstants;
 import com.liferay.portlet.expando.service.ExpandoRowLocalServiceUtil;
 
@@ -39,8 +41,15 @@ public class RepositoryEntryModelListener implements ModelListener<RepositoryEnt
             long companyId = GroupLocalServiceUtil.getGroup(repositoryEntry.getGroupId()).getCompanyId();
             ExpandoRowLocalServiceUtil.deleteRow(companyId, RepositoryEntry.class.getName(), ExpandoTableConstants.DEFAULT_TABLE_NAME, repositoryEntry.getRepositoryEntryId());
         } catch (Exception ex) {
-            throw new ModelListenerException("Cannot remove expando attributes for RepositoryEntry", ex);
+            throw new ModelListenerException("Cannot remove expando attributes for RepositoryEntry " + repositoryEntry.getRepositoryEntryId(), ex);
         }
+
+        try {
+            AssetEntryLocalServiceUtil.deleteEntry(DLFileEntryConstants.getClassName(), repositoryEntry.getRepositoryEntryId());
+        } catch (Exception ex) {
+            throw new ModelListenerException("Cannot remove asset for RepositoryEntry " + repositoryEntry.getRepositoryEntryId(), ex);
+        }
+
     }
 
     public void onAfterRemoveAssociation(Object o, String string, Object o1) throws ModelListenerException {

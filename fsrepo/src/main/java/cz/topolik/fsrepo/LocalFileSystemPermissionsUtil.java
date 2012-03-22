@@ -26,6 +26,7 @@ import com.liferay.portal.service.RoleLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.expando.model.ExpandoColumn;
+import cz.topolik.fsrepo.model.FileSystemModel;
 
 /**
  *
@@ -55,6 +56,11 @@ public class LocalFileSystemPermissionsUtil {
 
     public static boolean containsFileEntry(long groupId, long fileEntryId, String actionId) {
         return getPermissionChecker().hasPermission(groupId, DLFileEntry.class.getName(), fileEntryId, actionId);
+    }
+
+    public static boolean contains(FileSystemModel model, String actionId){
+        return getPermissionChecker().hasPermission(model.getGroupId(), model.getModelClassName(), model.getPrimaryKey(), actionId);
+        
     }
 
     public static void initExpandoColumnPermissions(long companyId, ExpandoColumn col) throws PortalException, SystemException {

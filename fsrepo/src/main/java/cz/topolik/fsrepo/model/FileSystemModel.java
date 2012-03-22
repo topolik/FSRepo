@@ -38,23 +38,24 @@ import java.util.Set;
 public abstract class FileSystemModel {
 
     private static Log _log = LogFactoryUtil.getLog(FileSystemModel.class);
-    private static Set<String> _mappedActionKeys = new HashSet<String>();
+    private static Set<String> _supportedActionKeys = new HashSet<String>();
     private static Set<String> _unsupportedActionKeys = new HashSet<String>();
 
     static {
-        _mappedActionKeys.add(ActionKeys.ACCESS);
-        _mappedActionKeys.add(ActionKeys.VIEW);
+        _supportedActionKeys.add(ActionKeys.VIEW);
 
-        _mappedActionKeys.add(ActionKeys.ADD_DOCUMENT);
-        _mappedActionKeys.add(ActionKeys.ADD_SUBFOLDER);
-        _mappedActionKeys.add(ActionKeys.DELETE);
-        _mappedActionKeys.add(ActionKeys.UPDATE);
+        _supportedActionKeys.add(ActionKeys.ADD_DOCUMENT);
+        _supportedActionKeys.add(ActionKeys.ADD_SUBFOLDER);
+        _supportedActionKeys.add(ActionKeys.DELETE);
+        _supportedActionKeys.add(ActionKeys.UPDATE);
+        
+        _supportedActionKeys.add(ActionKeys.PERMISSIONS);
 
+        _unsupportedActionKeys.add(ActionKeys.ACCESS);
         _unsupportedActionKeys.add(ActionKeys.ADD_DISCUSSION);
         _unsupportedActionKeys.add(ActionKeys.ADD_SHORTCUT);
         _unsupportedActionKeys.add(ActionKeys.DELETE_DISCUSSION);
         _unsupportedActionKeys.add(ActionKeys.ADD_FOLDER);
-        //_unsupportedActionKeys.add(ActionKeys.PERMISSIONS);
         _unsupportedActionKeys.add(ActionKeys.UPDATE_DISCUSSION);
     }
     protected LocalFileSystemRepository repository;
@@ -69,26 +70,24 @@ public abstract class FileSystemModel {
 
     public boolean containsPermission(PermissionChecker permissionChecker, String actionId) throws PortalException, SystemException {
         boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
-        System.out.println("HAS PERMISSION [model, PK, actionId]: ["+ getModelClassName()+", " + getPrimaryKey() + ", " + actionId + "] = " + hasPermission + " : " + getName());
         if(!hasPermission){
             return false;
         }
         
-
         if (_unsupportedActionKeys.contains(actionId)) {
             return false;
         }
 
-        if(actionId.equals(ActionKeys.PERMISSIONS)){
-            return true;
-        }
-
-        if (_mappedActionKeys.contains(actionId)) {
-            if (actionId.equals(ActionKeys.ACCESS) || actionId.equals(ActionKeys.VIEW)) {
-                return localFile.canRead();
-            } else {
-                return localFile.canWrite();
+        if (_supportedActionKeys.contains(actionId)) {
+            if(actionId.equals(ActionKeys.PERMISSIONS)) {
+                return true;
             }
+
+            if(actionId.equals(ActionKeys.VIEW)) {
+                return localFile.canRead();
+            }
+            
+            return localFile.canWrite();            
         }
 
         return false;

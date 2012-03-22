@@ -25,6 +25,7 @@ import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.model.Lock;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
 import com.liferay.portlet.documentlibrary.model.DLFileEntry;
+import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
 import cz.topolik.fsrepo.LocalFileSystemRepository;
@@ -150,7 +151,7 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     }
 
     public String getVersion() {
-        return "1.0";
+        return DLFileEntryConstants.VERSION_DEFAULT;
     }
 
     public long getVersionUserId() {

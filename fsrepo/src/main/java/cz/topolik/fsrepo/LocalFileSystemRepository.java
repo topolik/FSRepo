@@ -38,21 +38,17 @@ import com.liferay.portal.kernel.search.Query;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.search.SearchEngineUtil;
 import com.liferay.portal.kernel.search.SearchException;
+import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.OrderByComparator;
 import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
 import com.liferay.portal.kernel.util.StreamUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.model.Lock;
 import com.liferay.portal.model.RepositoryEntry;
-import com.liferay.portal.model.ResourceConstants;
-import com.liferay.portal.model.ResourcePermission;
-import com.liferay.portal.model.RoleConstants;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
 import com.liferay.portal.security.permission.ActionKeys;
 import com.liferay.portal.security.permission.PermissionThreadLocal;
 import com.liferay.portal.service.ResourceLocalServiceUtil;
-import com.liferay.portal.service.ResourcePermissionLocalServiceUtil;
-import com.liferay.portal.service.RoleLocalServiceUtil;
 import com.liferay.portal.service.ServiceContext;
 import com.liferay.portal.service.UserLocalServiceUtil;
 import com.liferay.portal.service.persistence.RepositoryEntryUtil;
@@ -61,7 +57,6 @@ import com.liferay.portlet.documentlibrary.NoSuchFileVersionException;
 import com.liferay.portlet.documentlibrary.NoSuchFolderException;
 import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
-import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.service.persistence.DLFolderUtil;
 import com.liferay.portlet.expando.model.ExpandoColumn;
 import com.liferay.portlet.expando.model.ExpandoColumnConstants;
@@ -80,12 +75,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import static cz.topolik.fsrepo.Constants.*;
 
 /**
  * @author Tomas Polesovsky
  */
+// TODO: PropsValues.PERMISSIONS_VIEW_DYNAMIC_INHERITANCE - check ACCESS + VIEW on the parent folder
 public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     private static Log _log = LogFactoryUtil.getLog(LocalFileSystemRepository.class);
@@ -198,7 +193,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public String[][] getSupportedParameters() {
-        return new String[][]{{"ROOT_FOLDER"}};
+        return new String[][]{{ROOT_FOLDER, ADD_GUEST_PERMISSIONS, ADD_GROUP_PERMISSIONS}};
     }
 
     public FileEntry addFileEntry(long folderId, String sourceFileName, String mimeType, String title, String description, String changeLog, InputStream is, long size, ServiceContext serviceContext) throws PortalException, SystemException {
@@ -680,40 +675,17 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         repositoryEntry = RepositoryEntryUtil.create(repositoryEntryId);
         repositoryEntry.setGroupId(getGroupId());
         repositoryEntry.setRepositoryId(getRepositoryId());
-        repositoryEntry.setMappedId(String.valueOf(repositoryEntryId));
+        repositoryEntry.setMappedId(LocalFileSystemRepository.class.getName()+String.valueOf(repositoryEntryId));
         RepositoryEntryUtil.update(repositoryEntry, false);
 
         saveFileToExpando(repositoryEntry, file);
-
-        // copy over the parent permissions
+        
         try {
-            boolean addGuestPermissions = false;
-            boolean addGroupPermissions = false;
-            List<ResourcePermission> resPermissions = null;
-            try {
-                long guestRoleId = RoleLocalServiceUtil.getRole(getCompanyId(), RoleConstants.GUEST).getRoleId();
-                long groupRoleId = RoleLocalServiceUtil.getDefaultGroupRole(getGroupId()).getRoleId();
-                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
-                if(mountFolder != null){
-                    resPermissions = ResourcePermissionLocalServiceUtil.getResourceResourcePermissions(getCompanyId(), getGroupId(), DLFolder.class.getName(), String.valueOf(mountFolder.getFolderId()));
-                    for(ResourcePermission rp : resPermissions){
-                        if(rp.getRoleId() == guestRoleId){
-                            addGuestPermissions |= rp.hasActionId(ActionKeys.VIEW);
-                        }
-                        if(rp.getRoleId() == groupRoleId){
-                            addGroupPermissions |= rp.hasActionId(ActionKeys.VIEW);
-                        }
-                    }
-                }
-            } catch (RepositoryException ex) {
-                // do nothing, let's stick with restrictive permissions at all (only owner)
-            }
-
             long userId = UserLocalServiceUtil.getDefaultUserId(getCompanyId());
             if(PermissionThreadLocal.getPermissionChecker()!= null){
                 userId = PermissionThreadLocal.getPermissionChecker().getUserId();
             }
-            ResourceLocalServiceUtil.addResources(getCompanyId(), getGroupId(), userId, modelClass.getName(), repositoryEntryId, false, addGroupPermissions, addGuestPermissions);
+            ResourceLocalServiceUtil.addResources(getCompanyId(), getGroupId(), userId, modelClass.getName(), repositoryEntryId, false, addGroupPermissions(), addGuestPermissions());
         } catch (PortalException ex) {
             throw new SystemException(ex.getMessage(), ex);
         }
@@ -723,7 +695,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     public Folder fileToFolder(File folder) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(folder, DLFolder.class);
-        if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), entry.getRepositoryId(), ActionKeys.VIEW)){
+        if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
             return null;
         }
 
@@ -737,7 +709,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileVersion fileToFileVersion(File file, FileEntry fileEntry) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryId(), ActionKeys.VIEW)){
+        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
             return null;
         }
 
@@ -753,7 +725,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileEntry fileToFileEntry(File file, FileVersion fileVersion) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryId(), ActionKeys.VIEW)){
+        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
             return null;
         }
 
@@ -784,7 +756,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new NoSuchFileEntryException(
                     "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
         }
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryId(), ActionKeys.VIEW)){
+        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
             return null;
         }
 
@@ -807,7 +779,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "No LocalFileSystem file version with {fileVersionId=" + fileVersionId + "}");
         }
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryId(), ActionKeys.VIEW)){
+        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
             return null;
         }
 
@@ -827,7 +799,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         if (repositoryEntry != null) {
 
-            if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), repositoryEntry.getRepositoryId(), ActionKeys.VIEW)){
+            if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
                 return null;
             }
 
@@ -883,7 +855,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public File getRootFolder() throws FileNotFoundException, RepositoryException {
-        String file = getTypeSettingsProperties().getProperty("ROOT_FOLDER");
+        String file = getTypeSettingsProperties().getProperty(ROOT_FOLDER);
         if(file == null){
             throw new RepositoryException("There is no ROOT_FOLDER configured for the repository [repositoryId]: ["+getRepositoryId()+"]");
         }
@@ -892,5 +864,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new FileNotFoundException("Root folder no longer exists on the file system [folderPath, repositoryId] [" + f.getAbsolutePath() + ", " + getRepositoryId() +"]");
         }
         return f;
+    }
+    public boolean addGuestPermissions() {
+        return GetterUtil.getBoolean(getTypeSettingsProperties().getProperty(ADD_GUEST_PERMISSIONS), true);
+    }
+    public boolean addGroupPermissions() {
+        return GetterUtil.getBoolean(getTypeSettingsProperties().getProperty(ADD_GROUP_PERMISSIONS), true);
     }
 }
