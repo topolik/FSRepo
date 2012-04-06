@@ -104,7 +104,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     table = ExpandoTableLocalServiceUtil.addDefaultTable(getCompanyId(), RepositoryEntry.class.getName());
                 }
                 col = ExpandoColumnLocalServiceUtil.addColumn(table.getTableId(), Constants.ABSOLUTE_PATH, ExpandoColumnConstants.STRING);
-                
+
                 LocalFileSystemPermissionsUtil.initExpandoColumnPermissions(getCompanyId(), col);
             }
 
@@ -142,20 +142,20 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             File systemFolder = folderIdToFile(folderId);
             if (systemFolder.canRead()) {
                 for (File file : systemFolder.listFiles()) {
-                    if(file.canRead()){
+                    if (file.canRead()) {
                         if (file.isDirectory()) {
                             Folder f = fileToFolder(file);
-                            if(f != null){
+                            if (f != null) {
                                 result.add(f);
                             }
                         } else {
                             FileEntry f = fileToFileEntry(file);
-                            if(f != null){
+                            if (f != null) {
                                 result.add(f);
                             }
                         }
                     }
-                    if(obc == null && result.size() > end){
+                    if (obc == null && result.size() > end) {
                         return result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
                     }
                 }
@@ -319,11 +319,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                 for (File file : systemFolder.listFiles()) {
                     if (!file.isDirectory()) {
                         FileEntry f = fileToFileEntry(file);
-                        if(f != null){
+                        if (f != null) {
                             result.add(f);
                         }
                     }
-                    if(obc == null && result.size() > end){
+                    if (obc == null && result.size() > end) {
                         return result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
                     }
                 }
@@ -370,7 +370,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileEntry getFileEntry(long folderId, String title) throws PortalException, SystemException {
         LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
         FileEntry entry = fileToFileEntry(new File(folderIdToFile(folderId), title));
-        if(entry == null){
+        if (entry == null) {
             throw new PrincipalException();
         }
         LocalFileSystemPermissionsUtil.checkFileEntry(getGroupId(), entry.getFileEntryId(), ActionKeys.VIEW);
@@ -426,7 +426,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             List<Folder> result = new ArrayList<Folder>(subDirectories.length);
             for (File subDir : subDirectories) {
                 Folder f = fileToFolder(subDir);
-                if(f!=null){
+                if (f != null) {
                     result.add(f);
                 }
             }
@@ -449,7 +449,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public int getFoldersFileEntriesCount(List<Long> folderIds, int status) throws SystemException {
         int result = 0;
         for (Long folderId : folderIds) {
-            if(LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), folderId, ActionKeys.VIEW)){
+            if (LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), folderId, ActionKeys.VIEW)) {
                 result += getFileEntriesCount(folderId);
             }
         }
@@ -475,7 +475,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             List<Long> result = new ArrayList();
             List<Folder> folders = getFolders(folderId, false, 0, Integer.MAX_VALUE, null);
             for (Folder folder : folders) {
-                if(LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), folder.getFolderId(), ActionKeys.VIEW)){
+                if (LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), folder.getFolderId(), ActionKeys.VIEW)) {
                     result.add(folder.getFolderId());
                     if (recurse) {
                         result.addAll(getSubfolderIds(folder.getFolderId(), recurse));
@@ -521,8 +521,12 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            saveFileToExpando(repositoryEntry, dstFile);
-            
+            try {
+                saveFileToExpando(repositoryEntry, dstFile);
+            } catch (FileNotFoundException ex) {
+                throw new SystemException(ex.getMessage(), ex);
+            }
+
 
             return fileToFileEntry(dstFile);
         } else {
@@ -555,7 +559,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(folderId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            saveFileToExpando(repositoryEntry, dstFolder);
+            try {
+                saveFileToExpando(repositoryEntry, dstFolder);
+            } catch (FileNotFoundException ex) {
+                throw new SystemException(ex.getMessage(), ex);
+            }
 
             return fileToFolder(dstFolder);
         } else {
@@ -612,7 +620,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
             RepositoryEntry repositoryEntry = RepositoryEntryUtil.fetchByPrimaryKey(fileEntryId);
             RepositoryEntryUtil.update(repositoryEntry, true);
-            saveFileToExpando(repositoryEntry, dstFile);
+            try {
+                saveFileToExpando(repositoryEntry, dstFile);
+            } catch (FileNotFoundException ex) {
+                throw new SystemException(ex.getMessage(), ex);
+            }
         }
         return fileToFileEntry(dstFile);
     }
@@ -620,8 +632,8 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public Folder updateFolder(long folderId, String title, String description, ServiceContext serviceContext) throws PortalException, SystemException {
         LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
         LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.UPDATE);
-        if(title.contains(File.separator)){
-            throw new SystemException("Invalid character " + File.separator + " in the title! [title]: ["+title+"]");
+        if (title.contains(File.separator)) {
+            throw new SystemException("Invalid character " + File.separator + " in the title! [title]: [" + title + "]");
         }
         File folder = folderIdToFile(folderId);
         if (!folder.exists() || !folder.canWrite()) {
@@ -640,9 +652,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         throw new UnsupportedOperationException();
     }
 
-    /******************
+    /* *****************
      *
      */
+
+
     protected RepositoryEntry findEntryFromExpando(File file) throws SystemException {
         String className = RepositoryEntry.class.getName();
         long companyId = getCompanyId();
@@ -650,7 +664,13 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         DynamicQuery query = DynamicQueryFactoryUtil.forClass(ExpandoValue.class, PortalClassLoaderUtil.getClassLoader());
         query.add(RestrictionsFactoryUtil.eq("columnId", col.getColumnId()));
-        query.add(RestrictionsFactoryUtil.eq("data", getCombinedExpandoValue(file)));
+
+        try {
+            query.add(RestrictionsFactoryUtil.eq("data", getCombinedExpandoValue(file)));
+        } catch (FileNotFoundException ex) {
+            throw new SystemException(ex.getMessage(), ex);
+        }
+
         List<ExpandoValue> result = (List<ExpandoValue>) ExpandoValueLocalServiceUtil.dynamicQuery(query);
         if (result.size() == 0) {
             return null;
@@ -675,14 +695,17 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         repositoryEntry = RepositoryEntryUtil.create(repositoryEntryId);
         repositoryEntry.setGroupId(getGroupId());
         repositoryEntry.setRepositoryId(getRepositoryId());
-        repositoryEntry.setMappedId(LocalFileSystemRepository.class.getName()+String.valueOf(repositoryEntryId));
+        repositoryEntry.setMappedId(LocalFileSystemRepository.class.getName() + String.valueOf(repositoryEntryId));
         RepositoryEntryUtil.update(repositoryEntry, false);
+        try {
+            saveFileToExpando(repositoryEntry, file);
+        } catch (FileNotFoundException ex) {
+            throw new SystemException(ex.getMessage(), ex);
+        }
 
-        saveFileToExpando(repositoryEntry, file);
-        
         try {
             long userId = UserLocalServiceUtil.getDefaultUserId(getCompanyId());
-            if(PermissionThreadLocal.getPermissionChecker()!= null){
+            if (PermissionThreadLocal.getPermissionChecker() != null) {
                 userId = PermissionThreadLocal.getPermissionChecker().getUserId();
             }
             ResourceLocalServiceUtil.addResources(getCompanyId(), getGroupId(), userId, modelClass.getName(), repositoryEntryId, false, addGroupPermissions(), addGuestPermissions());
@@ -695,7 +718,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     public Folder fileToFolder(File folder) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(folder, DLFolder.class);
-        if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
+        if (!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;
         }
 
@@ -709,7 +732,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileVersion fileToFileVersion(File file, FileEntry fileEntry) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
+        if (!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;
         }
 
@@ -725,7 +748,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public FileEntry fileToFileEntry(File file, FileVersion fileVersion) throws SystemException {
         RepositoryEntry entry = retrieveRepositoryEntry(file, DLFileEntry.class);
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)){
+        if (!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;
         }
 
@@ -733,7 +756,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         try {
             long userId = PrincipalThreadLocal.getUserId();
-            if(userId == 0){
+            if (userId == 0) {
                 userId = UserLocalServiceUtil.getDefaultUserId(getCompanyId());
             }
             dlAppHelperLocalService.checkAssetEntry(
@@ -756,7 +779,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new NoSuchFileEntryException(
                     "No LocalFileSystem file entry with {fileEntryId=" + fileEntryId + "}");
         }
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
+        if (!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;
         }
 
@@ -779,7 +802,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     "No LocalFileSystem file version with {fileVersionId=" + fileVersionId + "}");
         }
 
-        if(!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
+        if (!LocalFileSystemPermissionsUtil.containsFileEntry(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;
         }
 
@@ -799,7 +822,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
         if (repositoryEntry != null) {
 
-            if(!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)){
+            if (!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), repositoryEntry.getRepositoryEntryId(), ActionKeys.VIEW)) {
                 return null;
             }
 
@@ -833,41 +856,44 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return getFileFromExpando(entry);
     }
 
-    protected String getCombinedExpandoValue(File file){
-        return String.valueOf(getRepositoryId() + "-" + file.getAbsolutePath());
+    protected String getCombinedExpandoValue(File file) throws FileNotFoundException {
+        String relativePath = file.getAbsolutePath().substring(getRootFolder().getAbsolutePath().length());
+        return String.valueOf(getRepositoryId() + "-" + relativePath);
     }
 
-    protected void saveFileToExpando(RepositoryEntry entry, File file){
+    protected void saveFileToExpando(RepositoryEntry entry, File file) throws FileNotFoundException {
         entry.getExpandoBridge().setAttribute(Constants.ABSOLUTE_PATH, getCombinedExpandoValue(file));
     }
-    
-    protected File getFileFromExpando(RepositoryEntry entry) throws FileNotFoundException{
+
+    protected File getFileFromExpando(RepositoryEntry entry) throws FileNotFoundException {
         String value = (String) entry.getExpandoBridge().getAttribute(Constants.ABSOLUTE_PATH);
-        String file = value.substring(value.indexOf("-")+1);
-        if(file == null){
-            throw new RuntimeException("There is no absolute path in Expando for Repository Entry [id]: ["+entry.getRepositoryEntryId()+"]");
+        String file = value.substring(value.indexOf("-") + 1);
+        if (file == null) {
+            throw new RuntimeException("There is no absolute path in Expando for Repository Entry [id]: [" + entry.getRepositoryEntryId() + "]");
         }
-        File f = new File(file);
-        if(!f.exists()){
+        File f = new File(getRootFolder(), file);
+        if (!f.exists()) {
             throw new FileNotFoundException("File no longer exists on the file system: " + f.getAbsolutePath());
         }
         return f;
     }
 
-    public File getRootFolder() throws FileNotFoundException, RepositoryException {
+    public File getRootFolder() throws FileNotFoundException {
         String file = getTypeSettingsProperties().getProperty(ROOT_FOLDER);
-        if(file == null){
-            throw new RepositoryException("There is no ROOT_FOLDER configured for the repository [repositoryId]: ["+getRepositoryId()+"]");
+        if (file == null) {
+            throw new RuntimeException("There is no ROOT_FOLDER configured for the repository [repositoryId]: [" + getRepositoryId() + "]");
         }
         File f = new File(file);
-        if(!f.exists()){
-            throw new FileNotFoundException("Root folder no longer exists on the file system [folderPath, repositoryId] [" + f.getAbsolutePath() + ", " + getRepositoryId() +"]");
+        if (!f.exists()) {
+            throw new FileNotFoundException("Root folder no longer exists on the file system [folderPath, repositoryId] [" + f.getAbsolutePath() + ", " + getRepositoryId() + "]");
         }
         return f;
     }
+
     public boolean addGuestPermissions() {
         return GetterUtil.getBoolean(getTypeSettingsProperties().getProperty(ADD_GUEST_PERMISSIONS), true);
     }
+
     public boolean addGroupPermissions() {
         return GetterUtil.getBoolean(getTypeSettingsProperties().getProperty(ADD_GROUP_PERMISSIONS), true);
     }
