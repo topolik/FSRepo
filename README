@@ -2,11 +2,20 @@ FSRepo is a Liferay 6.1 Hook for mapping existing local file system into Liferay
 
 Copyright (c) 2012 Tomáš Polešovský
 
-Based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync!
+Based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync.
+
+News
+====
+* 08.04.2012 - Version 1.1 is out
+* 25.02.2012 - Version 1.0 is out
 
 Documentation
 =============
 Please see wiki: https://github.com/topolik/FSRepo/wiki
+
+Upgrade 1.0 -> 1.1
+------------------
+Please see https://github.com/topolik/FSRepo/wiki
 
 Installation
 ------------
