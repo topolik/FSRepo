@@ -85,7 +85,7 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     }
 
     public FileVersion getFileVersion() throws PortalException, SystemException {
-        if(fileVersion == null){
+        if (fileVersion == null) {
             fileVersion = repository.fileToFileVersion(localFile, this);
         }
         return fileVersion;
@@ -106,12 +106,9 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
 
     public Folder getFolder() {
         try {
-            if (parentFolder != null) {
-                return parentFolder;
-            }
-
-            parentFolder = repository.fileToFolder(localFile.getParentFile());
-            return parentFolder;
+            return getParentFolder();
+        } catch (PortalException ex) {
+            _log.error(ex);
         } catch (SystemException ex) {
             _log.error(ex);
         }
@@ -200,6 +197,4 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     public String getName() {
         return getTitle();
     }
-
-
 }

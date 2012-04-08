@@ -57,6 +57,7 @@ import com.liferay.portlet.documentlibrary.NoSuchFileVersionException;
 import com.liferay.portlet.documentlibrary.NoSuchFolderException;
 import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
+import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.service.persistence.DLFolderUtil;
 import com.liferay.portlet.expando.model.ExpandoColumn;
 import com.liferay.portlet.expando.model.ExpandoColumnConstants;
@@ -76,6 +77,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import static cz.topolik.fsrepo.Constants.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Tomas Polesovsky
@@ -716,7 +719,19 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         return repositoryEntry;
     }
 
-    public Folder fileToFolder(File folder) throws SystemException {
+    public Folder fileToFolder(File folder) throws SystemException, PortalException {
+        try {
+            if (folder.getAbsolutePath().length() <= getRootFolder().getAbsolutePath().length()) {
+                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
+                if (!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), mountFolder.getFolderId(), ActionKeys.VIEW)) {
+                    return null;
+                }
+                return mountFolder;
+            }
+        } catch (FileNotFoundException ex) {
+            throw new SystemException(ex.getMessage(), ex);
+        }
+
         RepositoryEntry entry = retrieveRepositoryEntry(folder, DLFolder.class);
         if (!LocalFileSystemPermissionsUtil.containsFolder(getGroupId(), entry.getRepositoryEntryId(), ActionKeys.VIEW)) {
             return null;

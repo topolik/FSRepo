@@ -17,14 +17,17 @@ import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.security.permission.ActionKeys;
 import com.liferay.portal.security.permission.PermissionChecker;
 import com.liferay.portal.service.UserLocalServiceUtil;
+import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import com.liferay.portlet.expando.model.ExpandoBridge;
 import com.liferay.portlet.expando.util.ExpandoBridgeFactoryUtil;
 import cz.topolik.fsrepo.LocalFileSystemRepository;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
@@ -61,6 +64,8 @@ public abstract class FileSystemModel {
     protected LocalFileSystemRepository repository;
     protected String uuid;
     protected File localFile;
+    protected Folder parentFolder;
+
 
     public FileSystemModel(LocalFileSystemRepository repository, String uuid, File localFile) {
         this.repository = repository;
@@ -214,6 +219,24 @@ public abstract class FileSystemModel {
         return localFile;
     }
 
+    public Folder getParentFolder() throws PortalException, SystemException {
+        try {
+            if (parentFolder != null) {
+                return parentFolder;
+            }
+            File parentFile = localFile.getParentFile();
+            File rootFolder = repository.getRootFolder();
+            if (parentFile.getAbsolutePath().length() <= rootFolder.getAbsolutePath().length()) {
+                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
+                parentFolder = mountFolder;
+            } else {
+                parentFolder = repository.fileToFolder(parentFile);
+            }
+            return parentFolder;
+        } catch (FileNotFoundException ex) {
+            throw new SystemException("Cannot get parent folder for [folder]: ["+localFile.getAbsolutePath()+"]", ex);
+        }
+    }
     public abstract long getPrimaryKey();
 
     public abstract String getModelClassName();

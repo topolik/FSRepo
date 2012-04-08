@@ -18,10 +18,8 @@ import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
-import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import cz.topolik.fsrepo.LocalFileSystemRepository;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -33,7 +31,6 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
 
     private File folder;
     private long folderId;
-    private Folder parentFolder;
 
     public FileSystemFolder(LocalFileSystemRepository repository, String uuid, long folderId, File folder) {
         super(repository, uuid, folder);
@@ -67,25 +64,6 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
 
     public String getName() {
         return folder.getName();
-    }
-
-    public Folder getParentFolder() throws PortalException, SystemException {
-        try {
-            if (parentFolder != null) {
-                return parentFolder;
-            }
-            File parentFile = folder.getParentFile();
-            File rootFolder = repository.getRootFolder();
-            if (parentFile.getAbsolutePath().length() <= rootFolder.getAbsolutePath().length()) {
-                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
-                parentFolder = mountFolder;
-            } else {
-                parentFolder = repository.fileToFolder(parentFile);
-            }
-            return parentFolder;
-        } catch (FileNotFoundException ex) {
-            throw new SystemException("Cannot get parent folder for [folder]: ["+folder.getAbsolutePath()+"]", ex);
-        }
     }
 
     public long getParentFolderId() {
