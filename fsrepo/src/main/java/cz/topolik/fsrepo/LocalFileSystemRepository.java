@@ -169,10 +169,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
         if (obc != null) {
             Collections.sort(result, obc);
         }
+        result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
         return result;
     }
 
@@ -337,10 +337,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
         if (obc != null) {
             Collections.sort(result, obc);
         }
+        result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
         return result;
 
     }
@@ -433,10 +433,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
                     result.add(f);
                 }
             }
-            result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
             if (obc != null) {
                 Collections.sort(result, obc);
             }
+            result = result.subList(start < 0 ? 0 : start, end > result.size() ? result.size() : end);
             return result;
 
         }
