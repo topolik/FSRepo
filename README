@@ -1,8 +1,15 @@
-FSRepo is a Liferay 6.1 Hook for mapping existing local file system into Liferay as a new Documents & Media repository.
+FSRepo is a LGPL Liferay 6.1 Hook for mapping existing local file system into Liferay as a new Documents & Media repository.
 
-Copyright (c) 2012 Tomáš Polešovský
+How to use it
+=============
+* Photo Gallery
+  1. mount your photo albums directory as a Liferay DocLib repository
+  2. use Media Gallery portlet to display photos
 
-Based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync.
+* Easy Dropbox Integration
+  1. install & configure Dropbox into your server 
+  2. mount Dropbox directory as a Liferay DocLib repository 
+  3. access Dropbox files from the portal
 
 News
 ====
@@ -26,4 +33,8 @@ Local Build & Deploy
 Edit pom.xml and define correct location for: <liferay.auto.deploy.dir>
 
 Call `mvn clean package liferay:deploy'
+
+Other Info
+----------
+Copyright (c) 2012 Tomáš Polešovský, based on a brainstorming idea with Aleš Rybák when talking about Liferay Sync.
 
