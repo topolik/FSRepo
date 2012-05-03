@@ -74,12 +74,12 @@ public abstract class FileSystemModel {
     }
 
     public boolean containsPermission(PermissionChecker permissionChecker, String actionId) throws PortalException, SystemException {
-        boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
+		if (_unsupportedActionKeys.contains(actionId)) {
+			return false;
+		}
+
+		boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
         if(!hasPermission){
-            return false;
-        }
-        
-        if (_unsupportedActionKeys.contains(actionId)) {
             return false;
         }
 

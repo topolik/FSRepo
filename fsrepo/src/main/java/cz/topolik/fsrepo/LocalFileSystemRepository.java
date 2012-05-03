@@ -13,6 +13,10 @@
  */
 package cz.topolik.fsrepo;
 
+import com.liferay.portal.kernel.cache.Lifecycle;
+import com.liferay.portal.kernel.cache.ThreadLocalCache;
+import com.liferay.portal.kernel.cache.ThreadLocalCacheManager;
+import com.liferay.portal.kernel.util.*;
 import com.liferay.portal.security.auth.PrincipalException;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryIndexer;
@@ -38,11 +42,6 @@ import com.liferay.portal.kernel.search.Query;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.search.SearchEngineUtil;
 import com.liferay.portal.kernel.search.SearchException;
-import com.liferay.portal.kernel.util.GetterUtil;
-import com.liferay.portal.kernel.util.OrderByComparator;
-import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
-import com.liferay.portal.kernel.util.StreamUtil;
-import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.model.Lock;
 import com.liferay.portal.model.RepositoryEntry;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
@@ -77,8 +76,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import static cz.topolik.fsrepo.Constants.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author Tomas Polesovsky
@@ -144,7 +141,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
             LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
             File systemFolder = folderIdToFile(folderId);
             if (systemFolder.canRead()) {
-                for (File file : systemFolder.listFiles()) {
+                for (File file : loadFilesFromDisk(systemFolder, 0)) {
                     if (file.canRead()) {
                         if (file.isDirectory()) {
                             Folder f = fileToFolder(file);
@@ -183,12 +180,20 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     @Override
     public int getFoldersAndFileEntriesCount(long folderId) throws SystemException {
-        return getFoldersAndFileEntries(folderId, 0, Integer.MAX_VALUE, null).size();
+		try {
+			File dir = folderIdToFile(folderId);
+			if(dir == null){
+				return 0;
+			}
+			return loadFilesFromDisk(dir, 0).size();
+		} catch (PortalException e) {
+			throw new SystemException(e);
+		}
     }
 
     @Override
     public int getFoldersAndFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
-        return getFoldersAndFileEntries(folderId, mimeTypes, 0, Integer.MAX_VALUE, null).size();
+        return getFoldersAndFileEntriesCount(folderId);
     }
 
     public String[] getSupportedConfigurations() {
@@ -319,7 +324,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         try {
             File systemFolder = folderIdToFile(folderId);
             if (systemFolder.canRead()) {
-                for (File file : systemFolder.listFiles()) {
+                for (File file : loadFilesFromDisk(systemFolder, 2)) {
                     if (!file.isDirectory()) {
                         FileEntry f = fileToFileEntry(file);
                         if (f != null) {
@@ -354,16 +359,24 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public int getFileEntriesCount(long folderId) throws SystemException {
-        return getFileEntries(folderId, 0, Integer.MAX_VALUE, null).size();
+		try {
+			File dir = folderIdToFile(folderId);
+			if(dir == null){
+				return 0;
+			}
+			return loadFilesFromDisk(dir, 2).size();
+		} catch (PortalException e) {
+			throw new SystemException(e);
+		}
     }
 
     public int getFileEntriesCount(long folderId, long fileEntryTypeId) throws SystemException {
-        return getFileEntries(folderId, fileEntryTypeId, 0, Integer.MAX_VALUE, null).size();
+        return getFileEntriesCount(folderId);
     }
 
     public int getFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
-        return getFileEntries(folderId, mimeTypes, 0, Integer.MAX_VALUE, null).size();
-    }
+		return getFileEntriesCount(folderId);
+	}
 
     public FileEntry getFileEntry(long fileEntryId) throws PortalException, SystemException {
         LocalFileSystemPermissionsUtil.checkFileEntry(getGroupId(), fileEntryId, ActionKeys.VIEW);
@@ -420,14 +433,8 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         String fileSystemDirectory = folderIdToFile(parentFolderId).getAbsolutePath();
         File dir = new File(fileSystemDirectory);
         if (dir.canRead()) {
-            File[] subDirectories = dir.listFiles(new FileFilter() {
-
-                public boolean accept(File file) {
-                    return file.isDirectory();
-                }
-            });
-            List<Folder> result = new ArrayList<Folder>(subDirectories.length);
-            for (File subDir : subDirectories) {
+            List<Folder> result = new ArrayList<Folder>();
+            for (File subDir : loadFilesFromDisk(dir, 1)) {
                 Folder f = fileToFolder(subDir);
                 if (f != null) {
                     result.add(f);
@@ -445,8 +452,12 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     public int getFoldersCount(long parentFolderId, boolean includeMountfolders) throws PortalException, SystemException {
         LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
-        int result = getFolders(parentFolderId, includeMountfolders, 0, Integer.MAX_VALUE, null).size();
-        return result;
+		try {
+			File dir = folderIdToFile(parentFolderId);
+			return loadFilesFromDisk(dir, 1).size();
+		} catch (PortalException e) {
+			throw new SystemException(e);
+		}
     }
 
     public int getFoldersFileEntriesCount(List<Long> folderIds, int status) throws SystemException {
@@ -912,4 +923,100 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     public boolean addGroupPermissions() {
         return GetterUtil.getBoolean(getTypeSettingsProperties().getProperty(ADD_GROUP_PERMISSIONS), true);
     }
+
+	protected List<File> loadFilesFromDisk(File dir, final int type){
+		List<File> result = new ArrayList<File>();
+		String cacheKey = dir.getAbsolutePath();
+		File[] cached = getFromCache(cacheKey);
+		if(cached == null){
+			cached = dir.listFiles();
+			putToCache(cacheKey, cached);
+		}
+		for(File f : cached){
+			switch (type){
+				case 2 : {
+					if(!f.isDirectory()){
+						result.add(f);
+					}
+					break;
+				}
+				case 1 : {
+					if(f.isDirectory()){
+						result.add(f);
+					}
+					break;
+				}
+				case 0 :
+				default : {
+					result.add(f);
+					break;
+				}
+			}
+		}
+		return result;
+	}
+/*
+	protected List<FileEntry> getFileEntriesFromDisk(File dir) throws SystemException {
+		List<FileEntry> result = new ArrayList<FileEntry>();
+		if(dir == null){
+			return result;
+		}
+		List cached = getFromCache(dir.getAbsolutePath());
+		if(cached != null){
+			return cached;
+		}
+
+		if (dir.canRead()) {
+			File[] files = loadFilesFromDisk(dir, 2);
+			for (File file : files) {
+				FileEntry f = fileToFileEntry(file);
+				if (f != null) {
+					result.add(f);
+				}
+			}
+		}
+
+	}
+
+	protected List<Folder> getFoldersFromDisk(File dir) throws SystemException, PortalException {
+		List<Folder> result = new ArrayList<Folder>();
+		if(dir == null){
+			return result;
+		}
+		List cached = getFromCache(dir.getAbsolutePath());
+		if(cached != null){
+			return cached;
+		}
+
+		if (dir.canRead()) {
+			File[] subDirectories = loadFilesFromDisk(dir, 1);
+			for (File subDir : subDirectories) {
+				Folder f = fileToFolder(subDir);
+				if (f != null) {
+					result.add(f);
+				}
+			}
+		}
+
+		putToCache(dir.getAbsolutePath(), result);
+		return result;
+	}
+
+*/
+	protected File[] getFromCache(String cacheKey){
+		String cacheName = new Exception().getStackTrace()[1].getMethodName();
+		ThreadLocalCache<File[]> threadLocalCache =
+				ThreadLocalCacheManager.getThreadLocalCache(
+						Lifecycle.REQUEST, cacheName);
+		return  threadLocalCache != null ? threadLocalCache.get(cacheKey) : null;
+	}
+
+	protected void putToCache(String cacheKey, File[] value){
+		String cacheName = new Exception().getStackTrace()[1].getMethodName();
+		ThreadLocalCache<File[]> threadLocalCache =
+				ThreadLocalCacheManager.getThreadLocalCache(
+						Lifecycle.REQUEST, cacheName);
+		threadLocalCache.put(cacheKey, value);
+	}
+
 }
