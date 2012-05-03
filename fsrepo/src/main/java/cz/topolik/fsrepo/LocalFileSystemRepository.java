@@ -16,6 +16,7 @@ package cz.topolik.fsrepo;
 import com.liferay.portal.kernel.cache.Lifecycle;
 import com.liferay.portal.kernel.cache.ThreadLocalCache;
 import com.liferay.portal.kernel.cache.ThreadLocalCacheManager;
+import com.liferay.portal.kernel.dao.orm.QueryUtil;
 import com.liferay.portal.kernel.util.*;
 import com.liferay.portal.security.auth.PrincipalException;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
@@ -136,7 +137,10 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {
-        List<Object> result = new ArrayList<Object>();
+		start = start == QueryUtil.ALL_POS ? 0 : start;
+		end = end == QueryUtil.ALL_POS ? Integer.MAX_VALUE : end;
+
+		List<Object> result = new ArrayList<Object>();
         try {
             LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
             File systemFolder = folderIdToFile(folderId);
@@ -315,7 +319,9 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public List<FileEntry> getFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {
-        try {
+		start = start == QueryUtil.ALL_POS ? 0 : start;
+		end = end == QueryUtil.ALL_POS ? Integer.MAX_VALUE : end;
+		try {
             LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
         } catch (PrincipalException ex) {
             throw new SystemException(ex);
@@ -429,7 +435,9 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public List<Folder> getFolders(long parentFolderId, boolean includeMountFolders, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
-        LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
+		start = start == QueryUtil.ALL_POS ? 0 : start;
+		end = end == QueryUtil.ALL_POS ? Integer.MAX_VALUE : end;
+		LocalFileSystemPermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
         String fileSystemDirectory = folderIdToFile(parentFolderId).getAbsolutePath();
         File dir = new File(fileSystemDirectory);
         if (dir.canRead()) {
