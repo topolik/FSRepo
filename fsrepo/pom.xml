@@ -6,9 +6,9 @@
     <artifactId>fsrepo</artifactId>
     <packaging>war</packaging>
     <name>fsrepo Hook</name>
-    <version>1.1</version>
+    <version>1.2</version>
     <build>
-        <finalName>${artifactId}-${version}-hook</finalName>
+        <finalName>${artifactId}-hook-${liferay.version}.2</finalName>
         <plugins>
             <plugin>
                 <groupId>com.liferay.maven.plugins</groupId>
@@ -34,6 +34,19 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
+			<plugin>
+			  <groupId>org.zeroturnaround</groupId>
+			  <artifactId>jrebel-maven-plugin</artifactId>
+			  <executions>
+				<execution>
+				  <id>generate-rebel-xml</id>
+				  <phase>process-resources</phase>
+				  <goals>
+					<goal>generate</goal>
+				  </goals>
+				</execution>
+			  </executions>
+			</plugin>
         </plugins>
     </build>
     <dependencies>
@@ -69,7 +82,7 @@
         </dependency>
     </dependencies>
     <properties>
-        <liferay.auto.deploy.dir>/opt/liferay-portal-6.1.0-ce-ga1/tomcat-7.0.23</liferay.auto.deploy.dir>
+        <liferay.auto.deploy.dir>/opt/liferay.git/bundles/tomcat-7.0.25</liferay.auto.deploy.dir>
         <liferay.version>6.1.0</liferay.version>
     </properties>
 </project>
