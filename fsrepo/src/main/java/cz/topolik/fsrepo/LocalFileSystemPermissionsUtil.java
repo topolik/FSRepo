@@ -41,21 +41,21 @@ public class LocalFileSystemPermissionsUtil {
 
     public static PermissionChecker getPermissionChecker() {
         PermissionChecker permissionChecker = PermissionThreadLocal.getPermissionChecker();
-		if(permissionChecker == null){
-			try {
-				// initialize to guest
-				Long companyId = CompanyThreadLocal.getCompanyId();
-				if(companyId == null){
-					companyId = PortalUtil.getDefaultCompanyId();
-				}
-				User defaultUser = UserLocalServiceUtil.getDefaultUser(companyId);
-				permissionChecker = PermissionCheckerFactoryUtil.create(defaultUser, true);
-				PermissionThreadLocal.setPermissionChecker(permissionChecker);
-			} catch (Exception e){
-				throw new RuntimeException(e.getMessage(), e);
-			}
-		}
-		return permissionChecker;
+        if(permissionChecker == null){
+            try {
+                // initialize to guest
+                Long companyId = CompanyThreadLocal.getCompanyId();
+                if(companyId == null){
+                    companyId = PortalUtil.getDefaultCompanyId();
+                }
+                User defaultUser = UserLocalServiceUtil.getDefaultUser(companyId);
+                permissionChecker = PermissionCheckerFactoryUtil.create(defaultUser, true);
+                PermissionThreadLocal.setPermissionChecker(permissionChecker);
+            } catch (Exception e){
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        }
+        return permissionChecker;
     }
 
     public static void checkFolder(long groupId, long folderId, String actionId) throws PrincipalException {
