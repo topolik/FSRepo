@@ -71,16 +71,24 @@ public class LocalFileSystemPermissionsUtil {
     }
 
     public static boolean containsFolder(long groupId, long folderId, String actionId) {
+        if(LocalFileSystemLocalRepository.isLocalCall()){
+            return true;
+        }
         return getPermissionChecker().hasPermission(groupId, DLFolder.class.getName(), folderId, actionId);
     }
 
     public static boolean containsFileEntry(long groupId, long fileEntryId, String actionId) {
+        if(LocalFileSystemLocalRepository.isLocalCall()){
+            return true;
+        }
         return getPermissionChecker().hasPermission(groupId, DLFileEntry.class.getName(), fileEntryId, actionId);
     }
 
     public static boolean contains(FileSystemModel model, String actionId){
+        if(LocalFileSystemLocalRepository.isLocalCall()){
+            return true;
+        }
         return getPermissionChecker().hasPermission(model.getGroupId(), model.getModelClassName(), model.getPrimaryKey(), actionId);
-        
     }
 
     public static void initExpandoColumnPermissions(long companyId, ExpandoColumn col) throws PortalException, SystemException {

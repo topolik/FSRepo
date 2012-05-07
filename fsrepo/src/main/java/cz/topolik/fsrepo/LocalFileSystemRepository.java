@@ -17,6 +17,7 @@ import com.liferay.portal.kernel.cache.Lifecycle;
 import com.liferay.portal.kernel.cache.ThreadLocalCache;
 import com.liferay.portal.kernel.cache.ThreadLocalCacheManager;
 import com.liferay.portal.kernel.dao.orm.QueryUtil;
+import com.liferay.portal.kernel.repository.LocalRepository;
 import com.liferay.portal.kernel.util.*;
 import com.liferay.portal.security.auth.PrincipalException;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
@@ -86,8 +87,18 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     private static Log _log = LogFactoryUtil.getLog(LocalFileSystemRepository.class);
     private FileSystemRepositoryEnvironment environment;
+	private LocalFileSystemLocalRepository localRepository;
 
-    @Override
+    public LocalFileSystemRepository(){
+        localRepository = new LocalFileSystemLocalRepository(this);
+    }
+
+	@Override
+	public LocalRepository getLocalRepository() {
+		return localRepository;
+	}
+
+	@Override
     public void initRepository() throws PortalException, SystemException {
         try {
             if (_log.isInfoEnabled()) {
