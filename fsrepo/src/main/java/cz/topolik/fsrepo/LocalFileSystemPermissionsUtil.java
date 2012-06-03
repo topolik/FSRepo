@@ -90,17 +90,4 @@ public class LocalFileSystemPermissionsUtil {
         }
         return getPermissionChecker().hasPermission(model.getGroupId(), model.getModelClassName(), model.getPrimaryKey(), actionId);
     }
-
-    public static void initExpandoColumnPermissions(long companyId, ExpandoColumn col) throws PortalException, SystemException {
-        // add default permissions on the expando attribute (user+guest: rw)
-        ResourcePermissionLocalServiceUtil.addResourcePermission(companyId, ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(companyId),
-                RoleLocalServiceUtil.getRole(companyId, RoleConstants.GUEST).getRoleId(), ActionKeys.VIEW);
-        ResourcePermissionLocalServiceUtil.addResourcePermission(companyId, ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(companyId),
-                RoleLocalServiceUtil.getRole(companyId, RoleConstants.GUEST).getRoleId(), ActionKeys.UPDATE);
-        ResourcePermissionLocalServiceUtil.addResourcePermission(companyId, ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(companyId),
-                RoleLocalServiceUtil.getRole(companyId, RoleConstants.USER).getRoleId(), ActionKeys.VIEW);
-        ResourcePermissionLocalServiceUtil.addResourcePermission(companyId, ExpandoColumn.class.getName(), ResourceConstants.SCOPE_COMPANY, String.valueOf(companyId),
-                RoleLocalServiceUtil.getRole(companyId, RoleConstants.USER).getRoleId(), ActionKeys.UPDATE);
-
-    }
 }
