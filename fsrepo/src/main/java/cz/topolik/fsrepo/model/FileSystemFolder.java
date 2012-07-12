@@ -89,7 +89,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     }
 
     public boolean isSupportsMultipleUpload() {
-        return false;
+        return true;
     }
 
     public boolean isSupportsShortcuts() {
