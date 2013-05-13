@@ -74,6 +74,11 @@ public abstract class FileSystemModel {
     }
 
     public boolean containsPermission(PermissionChecker permissionChecker, String actionId) throws PortalException, SystemException {
+        if(ActionKeys.ADD_FOLDER.equals(actionId)){
+            // ADD_FOLDER action is specified only for portlet model actions, On DLFolder level there is only ADD_SUBFOLDER - bug in Liferay.
+            // Pls. see https://github.com/liferay/liferay-portal/blob/6.1.1-ga2/portal-impl/src/resource-actions/documentlibrary.xml#L156,L190
+            actionId = ActionKeys.ADD_SUBFOLDER;
+        }
 		if (_unsupportedActionKeys.contains(actionId)) {
 			return false;
 		}
