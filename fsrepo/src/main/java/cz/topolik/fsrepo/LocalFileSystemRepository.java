@@ -944,6 +944,9 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
 
     protected List<File> loadFilesFromDisk(File dir, final int type){
         List<File> result = new ArrayList<File>();
+        if(!dir.canRead()){
+            return result;
+        }
         String cacheKey = dir.getAbsolutePath();
         File[] cached = getFromCache(cacheKey);
         if(cached == null){
