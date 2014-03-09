@@ -13,9 +13,12 @@
  */
 package cz.topolik.liferay.fsrepo;
 
+import com.liferay.portal.kernel.dao.orm.QueryUtil;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.repository.BaseRepositoryImpl;
+import com.liferay.portal.kernel.repository.DefaultLocalRepositoryImpl;
+import com.liferay.portal.kernel.repository.LocalRepository;
 import com.liferay.portal.kernel.repository.model.FileEntry;
 import com.liferay.portal.kernel.repository.model.FileVersion;
 import com.liferay.portal.kernel.repository.model.Folder;
@@ -28,6 +31,7 @@ import com.liferay.portal.model.Lock;
 import com.liferay.portal.security.auth.PrincipalException;
 import com.liferay.portal.security.permission.ActionKeys;
 import com.liferay.portal.service.ServiceContext;
+import com.liferay.portlet.documentlibrary.NoSuchFileEntryException;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -37,13 +41,32 @@ import java.util.List;
  * @author Tomas Polesovsky
  */
 public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
-    private FSRepo fsRepo = new FSRepo();
+
+    FSRepo fsRepo;
+    DefaultLocalRepositoryImpl defaultLocalRepository;
+
+    public FSRepoRepositoryImpl() {
+        fsRepo = new FSRepo();
+        defaultLocalRepository = new DefaultLocalRepositoryImpl(fsRepo);
+    }
+
+    @Override
+    public LocalRepository getLocalRepository() {
+        return defaultLocalRepository;
+    }
 
     @Override
     public void initRepository() throws PortalException, SystemException {
         fsRepo.initRepository();
     }
 
+    public String[] getSupportedConfigurations() {
+        return fsRepo.getSupportedConfigurations();
+    }
+
+    public String[][] getSupportedParameters() {
+        return fsRepo.getSupportedParameters();
+    }
 
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, int start, int end, OrderByComparator obc) throws SystemException {
@@ -53,36 +76,28 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(e);
         }
 
-        return fsRepo.getFoldersAndFileEntries(folderId, start, end, obc);
+        return filterFoldersAndFileEntries(fsRepo.getFoldersAndFileEntries(folderId, start, end, obc));
     }
 
     @Override
     public List<Object> getFoldersAndFileEntries(long folderId, String[] mimeTypes, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
-        return getFoldersAndFileEntries(folderId, start, end, obc);
-    }
-
-    @Override
-    public int getFoldersAndFileEntriesCount(long folderId) throws SystemException {
         try {
             PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
         } catch (PrincipalException e) {
             throw new SystemException(e);
         }
 
-        return fsRepo.getFoldersAndFileEntriesCount(folderId);
+        return filterFoldersAndFileEntries(fsRepo.getFoldersAndFileEntries(folderId, mimeTypes, start, end, obc));
+    }
+
+    @Override
+    public int getFoldersAndFileEntriesCount(long folderId) throws SystemException {
+        return getFoldersAndFileEntries(folderId, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null).size();
     }
 
     @Override
     public int getFoldersAndFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
-        return getFoldersAndFileEntriesCount(folderId);
-    }
-
-    public String[] getSupportedConfigurations() {
-        return fsRepo.getSupportedConfigurations();
-    }
-
-    public String[][] getSupportedParameters() {
-        return fsRepo.getSupportedParameters();
+        return getFoldersAndFileEntries(folderId, mimeTypes, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null).size();
     }
 
     public FileEntry addFileEntry(long folderId, String sourceFileName, String mimeType, String title, String description, String changeLog, InputStream is, long size, ServiceContext serviceContext) throws PortalException, SystemException {
@@ -99,10 +114,10 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
         return fsRepo.addFolder(parentFolderId, title, description, serviceContext);
     }
 
-    public void cancelCheckOut(long fileEntryId) throws PortalException, SystemException {
+    public FileVersion cancelCheckOut(long fileEntryId) throws PortalException, SystemException {
         PermissionsUtil.checkFileEntry(getGroupId(), fileEntryId, ActionKeys.UPDATE);
 
-        fsRepo.cancelCheckOut(fileEntryId);
+        return fsRepo.cancelCheckOut(fileEntryId);
     }
 
     public void checkInFileEntry(long fileEntryId, boolean major, String changeLog, ServiceContext serviceContext) throws PortalException, SystemException {
@@ -111,10 +126,22 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
         fsRepo.checkInFileEntry(fileEntryId, major, changeLog, serviceContext);
     }
 
-    public void checkInFileEntry(long fileEntryId, String lockUuid) throws PortalException, SystemException {
+    public void checkInFileEntry(long fileEntryId, String lockUuid, ServiceContext serviceContext) throws PortalException, SystemException {
         PermissionsUtil.checkFileEntry(getGroupId(), fileEntryId, ActionKeys.UPDATE);
 
-        fsRepo.checkInFileEntry(fileEntryId, lockUuid);
+        fsRepo.checkInFileEntry(fileEntryId, lockUuid, serviceContext);
+    }
+
+    public FileEntry checkOutFileEntry(long fileEntryId, ServiceContext serviceContext) throws PortalException, SystemException {
+        PermissionsUtil.checkFileEntry(getGroupId(), fileEntryId, ActionKeys.UPDATE);
+
+        return fsRepo.checkOutFileEntry(fileEntryId, serviceContext);
+    }
+
+    public FileEntry checkOutFileEntry(long fileEntryId, String owner, long expirationTime, ServiceContext serviceContext) throws PortalException, SystemException {
+        PermissionsUtil.checkFileEntry(getGroupId(), fileEntryId, ActionKeys.UPDATE);
+
+        return checkOutFileEntry(fileEntryId, owner, expirationTime, serviceContext);
     }
 
     public FileEntry checkOutFileEntry(long fileEntryId) throws PortalException, SystemException {
@@ -158,7 +185,7 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        return fsRepo.getFileEntries(folderId, start, end, obc);
+        return filterFileEntries(fsRepo.getFileEntries(folderId, start, end, obc));
     }
 
     public List<FileEntry> getFileEntries(long folderId, long fileEntryTypeId, int start, int end, OrderByComparator obc) throws SystemException {
@@ -168,7 +195,7 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        return fsRepo.getFileEntries(folderId, fileEntryTypeId, start, end, obc);
+        return filterFileEntries(fsRepo.getFileEntries(folderId, fileEntryTypeId, start, end, obc));
     }
 
     public List<FileEntry> getFileEntries(long folderId, String[] mimeTypes, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
@@ -178,37 +205,19 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        return fsRepo.getFileEntries(folderId, mimeTypes, start, end, obc);
+        return filterFileEntries(fsRepo.getFileEntries(folderId, mimeTypes, start, end, obc));
     }
 
     public int getFileEntriesCount(long folderId) throws SystemException {
-        try {
-            PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
-        } catch (PrincipalException ex) {
-            throw new SystemException(ex);
-        }
-
-        return fsRepo.getFileEntriesCount(folderId);
+        return filterFileEntries(getFileEntries(folderId, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null)).size();
     }
 
     public int getFileEntriesCount(long folderId, long fileEntryTypeId) throws SystemException {
-        try {
-            PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
-        } catch (PrincipalException ex) {
-            throw new SystemException(ex);
-        }
-
-        return fsRepo.getFileEntriesCount(folderId, fileEntryTypeId);
+        return filterFileEntries(getFileEntries(folderId, fileEntryTypeId, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null)).size();
     }
 
     public int getFileEntriesCount(long folderId, String[] mimeTypes) throws PortalException, SystemException {
-        try {
-            PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
-        } catch (PrincipalException ex) {
-            throw new SystemException(ex);
-        }
-
-        return fsRepo.getFileEntriesCount(folderId, mimeTypes);
+        return filterFileEntries(getFileEntries(folderId, mimeTypes, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null)).size();
     }
 
     public FileEntry getFileEntry(long fileEntryId) throws PortalException, SystemException {
@@ -222,7 +231,7 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
 
         FileEntry entry = fsRepo.getFileEntry(folderId, title);
         if (entry == null) {
-            throw new PrincipalException();
+            throw new NoSuchFileEntryException();
         }
 
         PermissionsUtil.checkFileEntry(getGroupId(), entry.getFileEntryId(), ActionKeys.VIEW);
@@ -233,7 +242,7 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
     public FileEntry getFileEntryByUuid(String uuid) throws PortalException, SystemException {
         FileEntry entry = fsRepo.getFileEntryByUuid(uuid);
         if (entry == null) {
-            throw new PrincipalException();
+            throw new NoSuchFileEntryException();
         }
 
         PermissionsUtil.checkFileEntry(getGroupId(), entry.getFileEntryId(), ActionKeys.VIEW);
@@ -266,24 +275,22 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
     public List<Folder> getFolders(long parentFolderId, boolean includeMountFolders, int start, int end, OrderByComparator obc) throws PortalException, SystemException {
         PermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
 
-        return fsRepo.getFolders(parentFolderId, includeMountFolders, start, end, obc);
+        return filterFolders(fsRepo.getFolders(parentFolderId, includeMountFolders, start, end, obc));
     }
 
     public int getFoldersCount(long parentFolderId, boolean includeMountfolders) throws PortalException, SystemException {
-        PermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
-
-        return fsRepo.getFoldersCount(parentFolderId, includeMountfolders);
+        return getFolders(parentFolderId, includeMountfolders, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null).size();
     }
 
     public int getFoldersFileEntriesCount(List<Long> folderIds, int status) throws SystemException {
         List<Long> allowedFolderIds = new ArrayList<Long>(folderIds.size());
-        for(Long folderId : folderIds) {
+        for (Long folderId : folderIds) {
             if (PermissionsUtil.containsFolder(getGroupId(), folderId, ActionKeys.VIEW)) {
                 allowedFolderIds.add(folderId);
             }
         }
 
-        return fsRepo.getFoldersFileEntriesCount(allowedFolderIds, status);
+        return filterFileEntries(fsRepo.getFoldersFileEntries(allowedFolderIds, status)).size();
     }
 
     public List<Folder> getMountFolders(long parentFolderId, int start, int end, OrderByComparator obc) throws SystemException {
@@ -293,35 +300,17 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        return fsRepo.getMountFolders(parentFolderId, start, end, obc);
+        return filterFolders(fsRepo.getMountFolders(parentFolderId, start, end, obc));
     }
 
     public int getMountFoldersCount(long parentFolderId) throws SystemException {
-        try {
-            PermissionsUtil.checkFolder(getGroupId(), parentFolderId, ActionKeys.VIEW);
-        } catch (PrincipalException ex) {
-            throw new SystemException(ex);
-        }
-
-        return fsRepo.getMountFoldersCount(parentFolderId);
+        return getMountFolders(parentFolderId, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null).size();
     }
 
     public void getSubfolderIds(List<Long> folderIds, long folderId) throws SystemException {
         //TODO: where is it used from?
-        try {
-            PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
-        } catch (PrincipalException ex) {
-            throw new SystemException(ex);
-        }
 
-        List<Long> allowedFolderIds = new ArrayList<Long>(folderIds.size());
-        for(Long folderId2 : folderIds) {
-            if (PermissionsUtil.containsFolder(getGroupId(), folderId2, ActionKeys.VIEW)) {
-                allowedFolderIds.add(folderId2);
-            }
-        }
-
-        fsRepo.getSubfolderIds(allowedFolderIds, folderId);
+        throw new UnsupportedOperationException();
     }
 
     public List<Long> getSubfolderIds(long folderId, boolean recurse) throws SystemException {
@@ -331,7 +320,7 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
             throw new SystemException(ex);
         }
 
-        return fsRepo.getSubfolderIds(folderId, recurse);
+        return filterFolderIds(fsRepo.getSubfolderIds(folderId, recurse));
     }
 
     public Lock lockFolder(long folderId) throws PortalException, SystemException {
@@ -364,12 +353,12 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
         return fsRepo.moveFolder(folderId, newParentFolderId, serviceContext);
     }
 
-    public Lock refreshFileEntryLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
-        return fsRepo.refreshFileEntryLock(lockUuid, expirationTime);
+    public Lock refreshFileEntryLock(String lockUuid, long companyId, long expirationTime) throws PortalException, SystemException {
+        throw new UnsupportedOperationException();
     }
 
-    public Lock refreshFolderLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
-        return fsRepo.refreshFolderLock(lockUuid, expirationTime);
+    public Lock refreshFolderLock(String lockUuid, long companyId, long expirationTime) throws PortalException, SystemException {
+        throw new UnsupportedOperationException();
     }
 
     public void revertFileEntry(long fileEntryId, String version, ServiceContext serviceContext) throws PortalException, SystemException {
@@ -378,8 +367,18 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
         fsRepo.revertFileEntry(fileEntryId, version, serviceContext);
     }
 
+    public Hits search(long creatorUserId, int status, int start, int end) throws PortalException, SystemException {
+        throw new UnsupportedOperationException();
+    }
+
+    public Hits search(long creatorUserId, long folderId, String[] mimeTypes, int status, int start, int end) throws PortalException, SystemException {
+        throw new UnsupportedOperationException();
+    }
+
     public Hits search(SearchContext searchContext, Query query) throws SearchException {
-        return fsRepo.search(searchContext, query);
+        throw new UnsupportedOperationException();
+
+//        return fsRepo.search(searchContext, query);
     }
 
     public void unlockFolder(long folderId, String lockUuid) throws PortalException, SystemException {
@@ -412,5 +411,53 @@ public class FSRepoRepositoryImpl extends BaseRepositoryImpl {
         PermissionsUtil.checkFolder(getGroupId(), folderId, ActionKeys.VIEW);
 
         return fsRepo.verifyInheritableLock(folderId, lockUuid);
+    }
+
+    protected List<FileEntry> filterFileEntries(List<FileEntry> fileEntries) {
+        List<FileEntry> result = new ArrayList<FileEntry>(fileEntries.size());
+        for (FileEntry fileEntry : fileEntries) {
+            if (PermissionsUtil.containsFileEntry(fileEntry.getGroupId(), fileEntry.getFileEntryId(), ActionKeys.VIEW)) {
+                result.add(fileEntry);
+            }
+        }
+        return result;
+    }
+
+    protected List<Folder> filterFolders(List<Folder> folders) {
+        List<Folder> result = new ArrayList<Folder>(folders.size());
+        for (Folder folder : folders) {
+            if (PermissionsUtil.containsFolder(folder.getGroupId(), folder.getFolderId(), ActionKeys.VIEW)) {
+                result.add(folder);
+            }
+        }
+        return result;
+    }
+
+    protected List<Long> filterFolderIds(List<Long> folderIds) {
+        List<Long> result = new ArrayList<Long>(folderIds.size());
+        for (Long folderId : folderIds) {
+            if (PermissionsUtil.containsFolder(getGroupId(), folderId, ActionKeys.VIEW)) {
+                result.add(folderId);
+            }
+        }
+
+        return result;
+    }
+
+    protected List<Object> filterFoldersAndFileEntries(List<Object> records) {
+        List<Object> result = new ArrayList<Object>(records.size());
+
+        for (Object record : records) {
+            if (record instanceof FileEntry &&
+                    PermissionsUtil.containsFileEntry(((FileEntry) record).getGroupId(), ((FileEntry) record).getFileEntryId(), ActionKeys.VIEW)) {
+                result.add(record);
+            }
+            if (record instanceof Folder &&
+                    PermissionsUtil.containsFileEntry(((Folder) record).getGroupId(), ((Folder) record).getFolderId(), ActionKeys.VIEW)) {
+                result.add(record);
+            }
+        }
+
+        return result;
     }
 }
