@@ -15,6 +15,7 @@ package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.lar.StagedModelType;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.repository.model.FileEntry;
@@ -27,7 +28,9 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.model.DLFileVersion;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
+
 import cz.topolik.fsrepo.LocalFileSystemRepository;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -47,6 +50,12 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
         super(repository, null, f);
         this.fileVersionId = fileVersionId;
         this.fileEntry = fileEntry;
+    }
+    
+    public Object clone() {
+    	FileSystemFileVersion lFSFileVersion = new FileSystemFileVersion(
+    			repository, fileVersionId, fileEntry, super.localFile);
+    	return lFSFileVersion;		
     }
 
     public String getChangeLog() {
@@ -161,6 +170,10 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
         return this;
     }
 
+    public FileVersion toUnescapedModel() {
+		return this;
+	}
+
     public Class<?> getModelClass() {
         return DLFileVersion.class;
     }
@@ -179,4 +192,13 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     public String getName() {
         return getTitle();
     }
+
+	public StagedModelType getStagedModelType() {
+		return new StagedModelType(FileVersion.class);
+	}
+
+	public void setUuid(String pUuid) {
+		uuid = pUuid;
+		
+	}
 }

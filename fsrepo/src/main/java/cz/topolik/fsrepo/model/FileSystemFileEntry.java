@@ -10,10 +10,12 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
  * details.
- */package cz.topolik.fsrepo.model;
+ */
+package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.lar.StagedModelType;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.repository.model.FileEntry;
@@ -28,7 +30,9 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
+
 import cz.topolik.fsrepo.LocalFileSystemRepository;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -53,6 +57,12 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
         this.fileEntryId = fileEntryId;
         this.parentFolder = parentFolder;
         this.fileVersion = fileVersion;
+    }
+    
+    public Object clone() {
+    	FileSystemFileEntry lFSFileEntry = new FileSystemFileEntry(
+    			repository, uuid, fileEntryId, parentFolder, localFile, fileVersion);
+    	return lFSFileEntry;
     }
 
     public InputStream getContentStream() throws PortalException, SystemException {
@@ -167,6 +177,10 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
         return false;
     }
 
+    public boolean isManualCheckInRequired() {
+		return false;
+	}
+
     public long getPrimaryKey() {
         return fileEntryId;
     }
@@ -174,6 +188,10 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     public FileEntry toEscapedModel() {
         return this;
     }
+
+    public FileEntry toUnescapedModel() {
+		return this;
+	}
 
     public Class<?> getModelClass() {
         return DLFileEntry.class;
@@ -197,4 +215,23 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     public String getName() {
         return getTitle();
     }
+
+	public StagedModelType getStagedModelType() {
+		return new StagedModelType(FileEntry.class);
+	}
+
+	public void setUuid(String pUuid) {
+		uuid = pUuid;
+	}
+
+	public boolean isInTrash() {
+		//Trashcan of native fs not supported, what's available on fs is considered not in trash.
+		return false;
+	}
+
+	public boolean isInTrashContainer() {
+		//Trashcan of native fs not supported, what's available on fs is considered not in trash.
+		return false;
+	}
+
 }

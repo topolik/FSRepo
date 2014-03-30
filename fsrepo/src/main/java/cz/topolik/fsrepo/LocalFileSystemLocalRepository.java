@@ -48,12 +48,14 @@ public class LocalFileSystemLocalRepository implements LocalRepository {
         return repository.getFileEntries(l, i, i1, orderByComparator);
     }
 
-    public List<Object> getFileEntriesAndFileShortcuts(long l, int i, int i1, int i2) throws SystemException {
+    public List<Object> getFileEntriesAndFileShortcuts(long l, int i, int i1, int i2) 
+    		throws SystemException, PortalException {
         setLocalCall();
         return repository.getFileEntriesAndFileShortcuts(l, i, i1, i2);
     }
 
-    public int getFileEntriesAndFileShortcutsCount(long l, int i) throws SystemException {
+    public int getFileEntriesAndFileShortcutsCount(long l, int i) 
+    		throws SystemException, PortalException {
         setLocalCall();
         return repository.getFileEntriesAndFileShortcutsCount(l, i);
     }
@@ -163,6 +165,12 @@ public class LocalFileSystemLocalRepository implements LocalRepository {
         throw new UnsupportedOperationException();
     }
 
+	public Folder moveFolder(long pUserId, long pFolderId,
+			long pParentFolderId, ServiceContext pServiceContext)
+			throws PortalException, SystemException {
+		throw new UnsupportedOperationException();
+	}
+
 	public void updateAsset(long l, FileEntry fileEntry, FileVersion fileVersion, long[] longs, String[] strings, long[] longs1) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
@@ -178,4 +186,5 @@ public class LocalFileSystemLocalRepository implements LocalRepository {
 	public Folder updateFolder(long l, long l1, String s, String s1, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
+
 }
