@@ -15,10 +15,13 @@ package cz.topolik.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.lar.StagedModelType;
 import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
+
 import cz.topolik.fsrepo.LocalFileSystemRepository;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
@@ -37,6 +40,11 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
         this.folder = folder;
         this.folderId = folderId;
     }
+    
+    public Object clone() {
+    	FileSystemFolder lFSFolder = new FileSystemFolder(repository, uuid, folderId, folder);
+    	return lFSFolder;
+    }
 
     public List<Folder> getAncestors() throws PortalException, SystemException {
         List<Folder> result = new ArrayList<Folder>();
@@ -49,6 +57,17 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
 
         return result;
     }
+    
+	public List<Long> getAncestorFolderIds() throws PortalException, SystemException {
+        List<Long> result = new ArrayList<Long>();
+
+        Folder f = this;
+        while (!f.isRoot()) {
+            f = f.getParentFolder();
+            result.add(f.getFolderId());
+        }
+        return result;
+	}
 
     public void setFolderId(long folderId) {
         this.folderId = folderId;
@@ -96,6 +115,10 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
         return false;
     }
 
+	public boolean isSupportsSubscribing() {
+		return false;
+	}
+    
     public Class<?> getModelClass() {
         return DLFolder.class;
     }
@@ -108,6 +131,10 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
         return this;
     }
 
+	public Folder toUnescapedModel() {
+		return this;
+	}
+
     @Override
     public long getPrimaryKey() {
         return folderId;
@@ -117,4 +144,12 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     public void setPrimaryKey(long primaryKey) {
         setFolderId(primaryKey);
     }
+
+	public StagedModelType getStagedModelType() {
+		return new StagedModelType(Folder.class);
+	}
+
+	public void setUuid(String pUuid) {
+		super.uuid = pUuid;		
+	}
 }
