@@ -28,7 +28,6 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.model.DLFileVersion;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
-
 import cz.topolik.fsrepo.LocalFileSystemRepository;
 
 import java.io.File;
@@ -48,14 +47,13 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
 
     public FileSystemFileVersion(LocalFileSystemRepository repository, long fileVersionId, FileEntry fileEntry, File f) {
         super(repository, null, f);
+
         this.fileVersionId = fileVersionId;
         this.fileEntry = fileEntry;
     }
     
     public Object clone() {
-    	FileSystemFileVersion lFSFileVersion = new FileSystemFileVersion(
-    			repository, fileVersionId, fileEntry, super.localFile);
-    	return lFSFileVersion;		
+        return new FileSystemFileVersion(repository, fileVersionId, fileEntry, super.localFile);
     }
 
     public String getChangeLog() {
@@ -195,10 +193,5 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
 
 	public StagedModelType getStagedModelType() {
 		return new StagedModelType(FileVersion.class);
-	}
-
-	public void setUuid(String pUuid) {
-		uuid = pUuid;
-		
 	}
 }

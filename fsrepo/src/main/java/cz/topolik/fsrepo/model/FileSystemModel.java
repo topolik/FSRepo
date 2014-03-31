@@ -211,6 +211,10 @@ public abstract class FileSystemModel {
     public void setUserUuid(String userUuid) {
     }
 
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
     public ExpandoBridge getExpandoBridge() {
         return ExpandoBridgeFactoryUtil.getExpandoBridge(
                 getCompanyId(), getModelClassName(), getPrimaryKey());

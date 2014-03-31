@@ -30,7 +30,6 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
-
 import cz.topolik.fsrepo.LocalFileSystemRepository;
 
 import java.io.File;
@@ -60,9 +59,7 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     }
     
     public Object clone() {
-    	FileSystemFileEntry lFSFileEntry = new FileSystemFileEntry(
-    			repository, uuid, fileEntryId, parentFolder, localFile, fileVersion);
-    	return lFSFileEntry;
+        return new FileSystemFileEntry(repository, uuid, fileEntryId, parentFolder, localFile, fileVersion);
     }
 
     public InputStream getContentStream() throws PortalException, SystemException {
@@ -218,10 +215,6 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
 
 	public StagedModelType getStagedModelType() {
 		return new StagedModelType(FileEntry.class);
-	}
-
-	public void setUuid(String pUuid) {
-		uuid = pUuid;
 	}
 
 	public boolean isInTrash() {

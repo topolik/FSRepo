@@ -42,8 +42,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     }
     
     public Object clone() {
-    	FileSystemFolder lFSFolder = new FileSystemFolder(repository, uuid, folderId, folder);
-    	return lFSFolder;
+        return new FileSystemFolder(repository, uuid, folderId, folder);
     }
 
     public List<Folder> getAncestors() throws PortalException, SystemException {
@@ -66,6 +65,7 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
             f = f.getParentFolder();
             result.add(f.getFolderId());
         }
+
         return result;
 	}
 
@@ -147,9 +147,5 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
 
 	public StagedModelType getStagedModelType() {
 		return new StagedModelType(Folder.class);
-	}
-
-	public void setUuid(String pUuid) {
-		super.uuid = pUuid;		
 	}
 }

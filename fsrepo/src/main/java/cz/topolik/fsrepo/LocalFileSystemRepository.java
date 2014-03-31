@@ -21,14 +21,12 @@ import com.liferay.portal.kernel.repository.LocalRepository;
 import com.liferay.portal.kernel.util.*;
 import com.liferay.portal.security.auth.PrincipalException;
 import com.liferay.portlet.expando.model.*;
-
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryMapper;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryIndexer;
 import cz.topolik.fsrepo.mapper.FileSystemRepositoryEnvironment;
 import cz.topolik.fsrepo.model.FileSystemFolder;
 import cz.topolik.fsrepo.model.FileSystemFileEntry;
 import cz.topolik.fsrepo.model.FileSystemFileVersion;
-
 import com.liferay.portal.NoSuchRepositoryEntryException;
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
 import com.liferay.portal.kernel.dao.orm.DynamicQueryFactoryUtil;
@@ -66,7 +64,6 @@ import com.liferay.portlet.documentlibrary.service.persistence.DLFolderUtil;
 import com.liferay.portlet.expando.service.ExpandoColumnLocalServiceUtil;
 import com.liferay.portlet.expando.service.ExpandoTableLocalServiceUtil;
 import com.liferay.portlet.expando.service.ExpandoValueLocalServiceUtil;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -76,9 +73,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import javax.naming.OperationNotSupportedException;
-
 import static cz.topolik.fsrepo.Constants.*;
 
 /**
@@ -251,6 +245,7 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         }
     }
 
+    /* 6.1 vs. 6.2 breaking API change, return type changed from void to FileVersion :(( */
     public FileVersion cancelCheckOut(long fileEntryId) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
@@ -259,8 +254,11 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public void checkInFileEntry(long fileEntryId, String lockUuid, ServiceContext pServiceContext)
-    		throws PortalException, SystemException {
+    public void checkInFileEntry(long fileEntryId, String lockUuid) throws PortalException, SystemException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public void checkInFileEntry(long fileEntryId, String lockUuid, ServiceContext serviceContext) throws PortalException, SystemException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
@@ -607,10 +605,19 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
     }
 
     public Lock refreshFileEntryLock(String lockUuid, long companyId, long expirationTime) throws PortalException, SystemException {
+        throw new UnsupportedOperationException("Not supported yet.");
+
+    }
+
+    public Lock refreshFolderLock(String lockUuid, long companyId, long expirationTime) throws PortalException, SystemException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public Lock refreshFileEntryLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
-    public Lock refreshFolderLock(String lockUuid, long pCompanyId, long expirationTime) throws PortalException, SystemException {
+    public Lock refreshFolderLock(String lockUuid, long expirationTime) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
     }
 
@@ -618,26 +625,19 @@ public class LocalFileSystemRepository extends BaseRepositoryImpl {
         throw new UnsupportedOperationException();
     }
 
+    public Hits search(long creatorUserId, int status, int start, int end) throws PortalException, SystemException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public Hits search(long creatorUserId, long folderId, String[] mimeTypes, int status, int start, int end) throws PortalException, SystemException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
     public Hits search(SearchContext searchContext, Query query) throws SearchException {
         // TODO: implement indexing and add specific FILE_SYSTEM key into the query
         System.out.println("Searched: " + query);
         return SearchEngineUtil.search(searchContext, query);
     }
-
-    // added 6.2
-    public Hits search(long pCreatorUserId, int pStatus, int pStart, int pEnd)
-			throws PortalException, SystemException {
-		// TODO implement search semantics
-		throw new UnsupportedOperationException("not implemented.");
-	}
-
-    // added 6.2
-	public Hits search(long pCreatorUserId, long pFolderId,
-			String[] pMimeTypes, int pStatus, int pStart, int pEnd)
-			throws PortalException, SystemException {
-		// TODO implement search semantics
-		throw new UnsupportedOperationException("not implemented.");
-	}
 
     public void unlockFolder(long folderId, String lockUuid) throws PortalException, SystemException {
         throw new UnsupportedOperationException();
