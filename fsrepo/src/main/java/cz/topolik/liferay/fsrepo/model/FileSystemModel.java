@@ -15,6 +15,7 @@ package cz.topolik.liferay.fsrepo.model;
 
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.lar.StagedModelType;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.repository.model.Folder;
@@ -25,11 +26,9 @@ import com.liferay.portal.service.UserLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.service.DLAppLocalServiceUtil;
 import com.liferay.portlet.expando.model.ExpandoBridge;
 import com.liferay.portlet.expando.util.ExpandoBridgeFactoryUtil;
-import cz.topolik.fsrepo.LocalFileSystemRepository;
-import cz.topolik.liferay.fsrepo.FSRepo;
+import cz.topolik.liferay.fsrepo.PortalMapper;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.Serializable;
 import java.util.*;
 
@@ -59,14 +58,15 @@ public abstract class FileSystemModel {
         _unsupportedActionKeys.add(ActionKeys.ADD_FOLDER);
         _unsupportedActionKeys.add(ActionKeys.UPDATE_DISCUSSION);
     }
-    protected FSRepo repository;
+    protected PortalMapper mapper;
     protected String uuid;
     protected File localFile;
     protected Folder parentFolder;
+    protected boolean escapedModel;
 
 
-    public FileSystemModel(FSRepo repository, String uuid, File localFile) {
-        this.repository = repository;
+    public FileSystemModel(PortalMapper mapper, String uuid, File localFile) {
+        this.mapper = mapper;
         this.uuid = uuid;
         this.localFile = localFile;
     }
@@ -81,7 +81,7 @@ public abstract class FileSystemModel {
 			return false;
 		}
 
-		boolean hasPermission = permissionChecker.hasPermission(repository.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
+		boolean hasPermission = permissionChecker.hasPermission(mapper.getGroupId(), getModelClassName(), getPrimaryKey(), actionId);
         if(!hasPermission){
             return false;
         }
@@ -102,7 +102,7 @@ public abstract class FileSystemModel {
     }
 
     public long getCompanyId() {
-        return repository.getCompanyId();
+        return mapper.getCompanyId();
     }
 
     public Date getCreateDate() {
@@ -114,7 +114,7 @@ public abstract class FileSystemModel {
     }
 
     public long getGroupId() {
-        return repository.getGroupId();
+        return mapper.getGroupId();
     }
 
     public Date getModifiedDate() {
@@ -122,7 +122,7 @@ public abstract class FileSystemModel {
     }
 
     public long getRepositoryId() {
-        return repository.getRepositoryId();
+        return mapper.getRepositoryId();
     }
 
     public long getUserId() {
@@ -179,7 +179,7 @@ public abstract class FileSystemModel {
     }
 
     public boolean isEscapedModel() {
-        return false;
+        return escapedModel;
     }
 
     public void setCompanyId(long companyId) {
@@ -187,6 +187,10 @@ public abstract class FileSystemModel {
     }
 
     public void setCreateDate(Date date) {
+    }
+
+    public void setEscapedModel(boolean escapedModel) {
+        this.escapedModel = escapedModel;
     }
 
     public void setGroupId(long groupId) {
@@ -209,6 +213,10 @@ public abstract class FileSystemModel {
     public void setUserUuid(String userUuid) {
     }
 
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
     public ExpandoBridge getExpandoBridge() {
         return ExpandoBridgeFactoryUtil.getExpandoBridge(
                 getCompanyId(), getModelClassName(), getPrimaryKey());
@@ -222,23 +230,23 @@ public abstract class FileSystemModel {
         return localFile;
     }
 
+    public StagedModelType getStagedModelType() {
+        return new StagedModelType(this.getClass());
+    }
+
     public Folder getParentFolder() throws PortalException, SystemException {
-        try {
-            if (parentFolder != null) {
-                return parentFolder;
-            }
-            File parentFile = localFile.getParentFile();
-            File rootFolder = repository.getRootFolder();
-            if (parentFile.getAbsolutePath().length() <= rootFolder.getAbsolutePath().length()) {
-                Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
-                parentFolder = mountFolder;
-            } else {
-                parentFolder = repository.fileToFolder(parentFile);
-            }
+        if (parentFolder != null) {
             return parentFolder;
-        } catch (FileNotFoundException ex) {
-            throw new SystemException("Cannot get parent folder for [folder]: ["+localFile.getAbsolutePath()+"]", ex);
         }
+        File parentFile = localFile.getParentFile();
+        File rootFolder = mapper.getRootFolder();
+        if (parentFile.getAbsolutePath().length() <= rootFolder.getAbsolutePath().length()) {
+            Folder mountFolder = DLAppLocalServiceUtil.getMountFolder(getRepositoryId());
+            parentFolder = mountFolder;
+        } else {
+            parentFolder = mapper.fileToFolder(parentFile);
+        }
+        return parentFolder;
     }
     public abstract long getPrimaryKey();
 

@@ -20,6 +20,7 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.repository.model.FileEntry;
 import com.liferay.portal.kernel.repository.model.FileVersion;
 import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portal.kernel.util.MimeTypesUtil;
 import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
@@ -27,8 +28,8 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.model.DLFileVersion;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
-import cz.topolik.fsrepo.LocalFileSystemRepository;
 import cz.topolik.liferay.fsrepo.FSRepo;
+import cz.topolik.liferay.fsrepo.PortalMapper;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,8 +46,8 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     private long fileVersionId;
     private FileEntry fileEntry;
 
-    public FileSystemFileVersion(FSRepo repository, long fileVersionId, FileEntry fileEntry, File f) {
-        super(repository, null, f);
+    public FileSystemFileVersion(PortalMapper mapper, long fileVersionId, FileEntry fileEntry, File localFile) {
+        super(mapper, null, localFile);
         this.fileVersionId = fileVersionId;
         this.fileEntry = fileEntry;
     }
@@ -81,7 +82,7 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
 
     public FileEntry getFileEntry() throws PortalException, SystemException {
         if(fileEntry == null){
-            fileEntry = repository.fileToFileEntry(localFile, this);
+            fileEntry = mapper.fileToFileEntry(localFile, this);
         }
         return fileEntry;
     }
@@ -132,6 +133,10 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     }
 
     public String getTitle() {
+        if (isEscapedModel()) {
+            return HtmlUtil.escape(localFile.getName());
+        }
+
         return localFile.getName();
     }
 
@@ -160,7 +165,16 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     }
 
     public FileVersion toEscapedModel() {
-        return this;
+        FileSystemFileVersion fileVersion = new FileSystemFileVersion(mapper, fileVersionId, fileEntry, localFile);
+        fileVersion.setEscapedModel(true);
+        return fileVersion;
+    }
+
+    @Override
+    public FileVersion toUnescapedModel() {
+        FileSystemFileVersion fileVersion = new FileSystemFileVersion(mapper, fileVersionId, fileEntry, localFile);
+        fileVersion.setEscapedModel(false);
+        return fileVersion;
     }
 
     public Class<?> getModelClass() {
@@ -180,5 +194,10 @@ public class FileSystemFileVersion extends FileSystemModel implements FileVersio
     @Override
     public String getName() {
         return getTitle();
+    }
+
+    @Override
+    public Object clone() {
+        return new FileSystemFileVersion(mapper, fileVersionId, fileEntry, localFile);
     }
 }

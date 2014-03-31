@@ -21,6 +21,7 @@ import com.liferay.portal.kernel.repository.model.FileEntry;
 import com.liferay.portal.kernel.repository.model.FileVersion;
 import com.liferay.portal.kernel.repository.model.Folder;
 import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portal.kernel.util.MimeTypesUtil;
 import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.model.Lock;
@@ -29,8 +30,7 @@ import com.liferay.portlet.documentlibrary.model.DLFileEntry;
 import com.liferay.portlet.documentlibrary.model.DLFileEntryConstants;
 import com.liferay.portlet.documentlibrary.service.DLAppHelperLocalServiceUtil;
 import com.liferay.portlet.documentlibrary.util.DLUtil;
-import cz.topolik.fsrepo.LocalFileSystemRepository;
-import cz.topolik.liferay.fsrepo.FSRepo;
+import cz.topolik.liferay.fsrepo.PortalMapper;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -50,8 +50,8 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     private long fileEntryId;
     private Folder parentFolder;
 
-    public FileSystemFileEntry(FSRepo repository, String uuid, long fileEntryId, Folder parentFolder, File localFile, FileVersion fileVersion) {
-        super(repository, uuid, localFile);
+    public FileSystemFileEntry(PortalMapper mapper, String uuid, long fileEntryId, Folder parentFolder, File localFile, FileVersion fileVersion) {
+        super(mapper, uuid, localFile);
 
         this.fileEntryId = fileEntryId;
         this.parentFolder = parentFolder;
@@ -89,7 +89,7 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
 
     public FileVersion getFileVersion() throws PortalException, SystemException {
         if (fileVersion == null) {
-            fileVersion = repository.fileToFileVersion(localFile, this);
+            fileVersion = mapper.fileToFileVersion(localFile, this);
         }
         return fileVersion;
     }
@@ -147,6 +147,10 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     }
 
     public String getTitle() {
+        if(isEscapedModel()) {
+            return HtmlUtil.escape(localFile.getName());
+        }
+
         return localFile.getName();
     }
 
@@ -170,12 +174,36 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
         return false;
     }
 
+    @Override
+    public boolean isInTrash() {
+        return false;
+    }
+
+    @Override
+    public boolean isInTrashContainer() {
+        return false;
+    }
+
+    @Override
+    public boolean isManualCheckInRequired() {
+        return false;
+    }
+
     public long getPrimaryKey() {
         return fileEntryId;
     }
 
     public FileEntry toEscapedModel() {
-        return this;
+        FileSystemFileEntry result = new FileSystemFileEntry(mapper, uuid, fileEntryId, parentFolder, localFile, fileVersion);
+        result.setEscapedModel(true);
+        return result;
+    }
+
+    @Override
+    public FileEntry toUnescapedModel() {
+        FileSystemFileEntry result = new FileSystemFileEntry(mapper, uuid, fileEntryId, parentFolder, localFile, fileVersion);
+        result.setEscapedModel(false);
+        return result;
     }
 
     public Class<?> getModelClass() {
@@ -199,5 +227,10 @@ public class FileSystemFileEntry extends FileSystemModel implements FileEntry {
     @Override
     public String getName() {
         return getTitle();
+    }
+
+    @Override
+    public Object clone() {
+        return new FileSystemFileEntry(mapper, uuid, fileEntryId, parentFolder, localFile, fileVersion);
     }
 }

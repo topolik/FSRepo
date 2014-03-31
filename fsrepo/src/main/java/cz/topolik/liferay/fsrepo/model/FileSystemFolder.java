@@ -16,10 +16,10 @@ package cz.topolik.liferay.fsrepo.model;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.repository.model.Folder;
+import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portlet.documentlibrary.model.DLFolder;
 import com.liferay.portlet.documentlibrary.model.DLFolderConstants;
-import cz.topolik.fsrepo.LocalFileSystemRepository;
-import cz.topolik.liferay.fsrepo.FSRepo;
+import cz.topolik.liferay.fsrepo.PortalMapper;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -34,10 +34,24 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     private File folder;
     private long folderId;
 
-    public FileSystemFolder(FSRepo repository, String uuid, long folderId, File folder) {
-        super(repository, uuid, folder);
+    public FileSystemFolder(PortalMapper mapper, String uuid, long folderId, File folder) {
+        super(mapper, uuid, folder);
+
         this.folder = folder;
         this.folderId = folderId;
+    }
+
+    @Override
+    public List<Long> getAncestorFolderIds() throws PortalException, SystemException {
+        List<Long> result = new ArrayList<Long>();
+
+        Folder f = this;
+        while (!f.isRoot()) {
+            f = f.getParentFolder();
+            result.add(f.getFolderId());
+        }
+
+        return result;
     }
 
     public List<Folder> getAncestors() throws PortalException, SystemException {
@@ -65,6 +79,10 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     }
 
     public String getName() {
+        if (isEscapedModel()) {
+            return HtmlUtil.escape(folder.getName());
+        }
+
         return folder.getName();
     }
 
@@ -98,6 +116,11 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
         return false;
     }
 
+    @Override
+    public boolean isSupportsSubscribing() {
+        return false;
+    }
+
     public Class<?> getModelClass() {
         return DLFolder.class;
     }
@@ -107,7 +130,16 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     }
 
     public Folder toEscapedModel() {
-        return this;
+        FileSystemFolder result = new FileSystemFolder(mapper, uuid, folderId, folder);
+        result.setEscapedModel(true);
+        return result;
+    }
+
+    @Override
+    public Folder toUnescapedModel() {
+        FileSystemFolder result = new FileSystemFolder(mapper, uuid, folderId, folder);
+        result.setEscapedModel(false);
+        return result;
     }
 
     @Override
@@ -118,5 +150,10 @@ public class FileSystemFolder extends FileSystemModel implements Folder {
     @Override
     public void setPrimaryKey(long primaryKey) {
         setFolderId(primaryKey);
+    }
+
+    @Override
+    public Object clone() {
+        return new FileSystemFolder(mapper, uuid, folderId, folder);
     }
 }
